@@ -41,5 +41,11 @@
       <Filter>资源文件</Filter>
     </None>
     <None Include="packages.config" />
+    <None Include="tex.frag">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="tex.vs">
+      <Filter>资源文件</Filter>
+    </None>
   </ItemGroup>
 </Project>

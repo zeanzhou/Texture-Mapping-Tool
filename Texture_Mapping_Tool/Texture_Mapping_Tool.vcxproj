@@ -161,6 +161,8 @@
     <None Include="obj.frag" />
     <None Include="obj.vs" />
     <None Include="packages.config" />
+    <None Include="tex.frag" />
+    <None Include="tex.vs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

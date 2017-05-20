@@ -122,6 +122,27 @@ public:
 			this->Zoom = 45.0f;
 	}
 
+	void ViewSwitch(int pos)
+	{
+		glm::vec3 camera_pos[6] = {
+			glm::vec3(0.0f,  0.0f,  3.0f),
+			glm::vec3(3.0f,  0.0f,  0.0f),
+			glm::vec3(0.0f,  0.0f, -3.0f),
+			glm::vec3(-3.0f, 0.0f,  0.0f),
+			glm::vec3(0.0f,  3.0f,  0.0f),
+			glm::vec3(0.0f, -3.0f,  0.0f)
+		};
+		GLfloat camera_yaw[6] = {
+			-90, -180, -270, -360, -270, -270
+		};
+		GLfloat camera_pitch[6] = {
+			0, 0, 0, 0, -90, 90
+		};
+		this->Position = camera_pos[pos];
+		this->Yaw = camera_yaw[pos];
+		this->Pitch = camera_pitch[pos];
+		this->updateCameraVectors();
+	}
 private:
 	// Calculates the front vector from the Camera's (updated) Eular Angles
 	void updateCameraVectors()

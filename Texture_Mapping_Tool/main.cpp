@@ -21,8 +21,12 @@
 // Other Libs
 #include <SOIL.h>
 
+// Windows Libirary (console movement)
+#include <windows.h>
+
 // Properties
-GLuint screenWidth = 800, screenHeight = 600;
+GLuint screen_width = GetSystemMetrics(SM_CXSCREEN);
+GLuint screen_height = GetSystemMetrics(SM_CYSCREEN);
 GLuint WIDTH = 800, HEIGHT = 600;
 
 // Function prototypes
@@ -32,14 +36,30 @@ void mousemove_callback(GLFWwindow* window, double xpos, double ypos);
 void mouseclick_callback(GLFWwindow* window, int button, int action, int mods);
 void Do_Movement();
 
+// Self-defined Function Prototype
+void set_model_coord(GLint xpos, GLint ypos, int index);
+
+
+// Coordination
+glm::vec4 vertex_coord[4];
+glm::vec4 texture_coord[4];
+
+
 // Camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 bool keys[1024];
 GLfloat lastX = 400, lastY = 300;
 bool firstMouse = true;
+int current_camera_pos = 0;
+
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
+
+// Window
+GLFWwindow* objwindow;
+GLFWwindow* texwindow;
+
 
 // The MAIN function, from here we start our application and run our Game loop
 int main()
@@ -51,11 +71,13 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-
+	HWND console = GetConsoleWindow();
+	MoveWindow(console, 0, 0, screen_width, screen_height / 3.5 + 20, true);
 	/*=============================================================*/
 	/*==================Create Obj Model Window====================*/
-	GLFWwindow* objwindow = glfwCreateWindow(screenWidth, screenHeight, "OBJ Model", nullptr, nullptr); // Windowed
+	objwindow = glfwCreateWindow(WIDTH, HEIGHT, "OBJ Model", nullptr, nullptr); // Windowed
 	glfwMakeContextCurrent(objwindow);
+	glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 400);
 
 	// Set the required callback functions
 	glfwSetKeyCallback(objwindow, key_callback);
@@ -71,7 +93,7 @@ int main()
 	glewInit();
 
 	// Define the viewport dimensions
-	glViewport(0, 0, screenWidth, screenHeight);
+	glViewport(0, 0, WIDTH, HEIGHT);
 
 	// Setup some OpenGL options
 	glEnable(GL_DEPTH_TEST);
@@ -94,8 +116,9 @@ int main()
 	/*===================Create Texture Window=====================*/
 
 	// Create a GLFWwindow object that we can use for GLFW's functions
-	GLFWwindow* texwindow = glfwCreateWindow(WIDTH, HEIGHT, "Texture", nullptr, nullptr);
+	texwindow = glfwCreateWindow(WIDTH, HEIGHT, "Texture", nullptr, nullptr);
 	glfwMakeContextCurrent(texwindow);
+	glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 400);
 
 	// Set the required callback functions
 	glfwSetKeyCallback(texwindow, key_callback);
@@ -211,19 +234,19 @@ int main()
 
 		// Clear the colorbuffer
 		//glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		shader.Use();   // <-- Don't forget this one!
 						// Transformation matrices
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)screenWidth / (float)screenHeight, 0.1f, 20.0f);
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 20.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
 		// ZZA Added
 		// Camera Distance
-		GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));;
+		GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
 		glUniform1f(glGetUniformLocation(shader.Program, "camera_dist"), camera_dist);
 		//std:cout << camera_dist << std::endl;
 
@@ -241,7 +264,7 @@ int main()
 
 		glfwMakeContextCurrent(texwindow);
 		// Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
-		glfwPollEvents();
+		//glfwPollEvents();
 
 		// Render
 		// Clear the colorbuffer
@@ -276,6 +299,24 @@ int main()
 	return 0;
 }
 
+void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
+{
+	//glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 20.0f);
+	glm::mat4 view = camera.GetViewMatrix();
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
+	model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+	
+	// Get Inverse of P, V ,M Matrix
+	//projection = glm::inverse(projection);
+	view = glm::inverse(view);
+	model = glm::inverse(model);
+
+	GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
+	glm::vec4 sceen_coord = glm::vec4(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1, depth - 0.5 - camera_dist, 1.0f);
+	vertex_coord[index] = model * view * sceen_coord;
+}
+
 #pragma region "User input"
 
 // Moves/alters the camera positions based on user input
@@ -306,6 +347,27 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		keys[key] = true;
 	else if (action == GLFW_RELEASE)
 		keys[key] = false;
+
+	if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
+	{
+		current_camera_pos = (current_camera_pos + 3) % 4;
+		camera.ViewSwitch(current_camera_pos);
+	}
+	if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
+	{
+		current_camera_pos = (current_camera_pos + 1) % 4;
+		camera.ViewSwitch(current_camera_pos);
+	}
+	if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+	{
+		current_camera_pos = (current_camera_pos == 5) ? 0 : 4;
+		camera.ViewSwitch(current_camera_pos);
+	}
+	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+	{
+		current_camera_pos = (current_camera_pos == 4) ? 0 : 5;
+		camera.ViewSwitch(current_camera_pos);
+	}
 }
 
 void mousemove_callback(GLFWwindow* window, double xpos, double ypos)
@@ -328,8 +390,9 @@ void mousemove_callback(GLFWwindow* window, double xpos, double ypos)
 	camera.ProcessMouseMovement(xoffset, yoffset);
 	*/
 	GLfloat pixel[3];
-	glReadPixels((GLint)xpos, 600 - (GLint)ypos, 1, 1, GL_RGB, GL_FLOAT, &pixel);
-	std::cout << pixel[0] << " " << pixel[1] << " " << pixel[2] << " " << std::endl;
+	glReadPixels((GLint)xpos, HEIGHT - (GLint)ypos, 1, 1, GL_RGB, GL_FLOAT, &pixel);
+	//if (window == objwindow)
+	//	std::cout << pixel[0] << " " << pixel[1] << " " << pixel[2] << " " << std::endl;
 }
 
 void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) //GLFW_RELEASE
@@ -337,12 +400,22 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
 	std::cout << xpos << " " << ypos << std::endl;
-	if (button == GLFW_MOUSE_BUTTON_2 && action == GLFW_PRESS)
+
+	if (window == objwindow)
 	{
-		unsigned char* pixel = new unsigned char[3*800*600];
-		glReadPixels(0, 0, 800, 600, GL_RGB, GL_UNSIGNED_BYTE, pixel);
-		SOIL_save_image("check.bmp", SOIL_SAVE_TYPE_BMP, 800, 600, 3, pixel);
-		delete[] pixel;
+		if (button == GLFW_MOUSE_BUTTON_2 && action == GLFW_PRESS)
+		{
+			unsigned char* pixel = new unsigned char[3 * 800 * 600];
+			glReadPixels(0, 0, 800, 600, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+			SOIL_save_image("check.bmp", SOIL_SAVE_TYPE_BMP, 800, 600, 3, pixel);
+			delete[] pixel;
+		}
+		if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS)
+		{
+			GLfloat depth;
+			glReadPixels((GLint)xpos, 600 - (GLint)ypos, 1, 1, GL_R, GL_FLOAT, &depth);
+			std::cout << xpos << " " << ypos << " " << depth << std::endl;
+		}
 	}
 }
 

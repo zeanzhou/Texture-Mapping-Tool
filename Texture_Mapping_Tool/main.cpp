@@ -42,14 +42,15 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods);
 void Do_Movement();
 
 // Self-defined Function Prototype
-void set_model_coord(GLint xpos, GLint ypos, int index);
-
+void set_model_coord(GLint xpos, GLint ypos, double depth, int index);
+void set_texture_coord(GLint xpos, GLint ypos, int index);
 
 // Coordination
 glm::vec4 vertex_coord[4];
 glm::vec2 model_2D_coord[4];
 glm::vec2 texture_2D_coord[4];
 glm::mat4 homography_matrix;
+int point_selection_index;
 
 // Camera
 bool keys[1024];
@@ -128,6 +129,7 @@ int main()
 
 	// Set the required callback functions
 	glfwSetKeyCallback(texwindow, key_callback);
+	glfwSetMouseButtonCallback(texwindow, mouseclick_callback);
 
 	// Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
 	glewExperimental = GL_TRUE;
@@ -145,10 +147,10 @@ int main()
 	// Set up vertex data (and buffer(s)) and attribute pointers
 	GLfloat vertices[] = {
 		// Positions          // Colors           // Texture Coords
-		0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f, // Top Right
-		0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, // Bottom Right
-		-0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // Bottom Left
-		-0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f  // Top Left 
+		1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f, // Top Right
+		1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, // Bottom Right
+		-1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // Bottom Left
+		-1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f  // Top Left 
 	};
 	GLuint indices[] = {  // Note that we start from 0!
 		0, 1, 3, // First Triangle
@@ -319,11 +321,15 @@ void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 	model = glm::inverse(model);
 
 	GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
-	glm::vec4 screen_coord = glm::vec4(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1, depth - 0.5 - camera_dist, 1.0f);
+	glm::vec4 screen_coord = glm::vec4(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1, depth * 0.5 - camera_dist, 1.0f);
 	model_2D_coord[index] = glm::vec2(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1);
 	vertex_coord[index] = model * view * screen_coord;
 }
 
+void set_texture_coord(GLint xpos, GLint ypos, int index)
+{
+	texture_2D_coord[index] = glm::vec2(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1);
+}
 
 //  Texture_2D ~ H * model_2D <- input
 void calc_homography_matrix()
@@ -428,9 +434,9 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 {
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
-	std::cout << xpos << " " << ypos << std::endl;
+	//std::cout << xpos << " " << ypos << std::endl;
 
-	if (window == objwindow)
+	if (window == objwindow)  // even number: 0, 2, 4, 6
 	{
 		if (button == GLFW_MOUSE_BUTTON_2 && action == GLFW_PRESS) //debug only
 		{
@@ -441,9 +447,47 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 		}
 		if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS)
 		{
-			GLfloat depth;
-			glReadPixels((GLint)xpos, 600 - (GLint)ypos, 1, 1, GL_R, GL_FLOAT, &depth);
+			GLfloat pixel[3];
+			glReadPixels((GLint)xpos, HEIGHT - (GLint)ypos, 1, 1, GL_RGB, GL_FLOAT, &pixel);
+			
+			GLfloat depth = pixel[0];
+			if (depth == 0)
+			{
+				cout << "[Error] " << "Infinite depth!" << endl;
+				return;
+			}
 			std::cout << xpos << " " << ypos << " " << depth << std::endl;
+			
+			if (point_selection_index % 2 == 0)
+			{
+				set_model_coord(xpos, ypos, depth, point_selection_index / 2);
+				cout << "[Info] " << point_selection_index / 2 + 1 << "-th model point is selected..." << endl;
+				point_selection_index = (point_selection_index + 1) % 8;
+			}
+			else
+			{
+				set_model_coord(xpos, ypos, depth, (point_selection_index - 1) / 2);
+				cout << "[Info] " << (point_selection_index - 1) / 2 + 1 << "-th model point is changed..." << endl;
+			}
+				
+			
+		}
+	}
+	if (window == texwindow) // odd number: 1, 3, 5, 7
+	{
+		if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS)
+		{
+			if (point_selection_index % 2 == 1)
+			{
+				set_texture_coord(xpos, ypos, point_selection_index / 2);
+				cout << "[Info] " << point_selection_index / 2 + 1 << "-th texture point is selected..." << endl;
+				point_selection_index = (point_selection_index + 1) % 8;
+			}
+			else
+			{
+				set_texture_coord(xpos, ypos, (point_selection_index - 1) / 2);
+				cout << "[Info] " << (point_selection_index - 1) / 2 + 1 << "-th texture point is changed..." << endl;
+			}
 		}
 	}
 }

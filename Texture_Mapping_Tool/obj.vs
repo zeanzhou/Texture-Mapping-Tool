@@ -19,6 +19,6 @@ void main()
 
 	vec4 transformed_model = view * model * vec4(position, 1.0f);
 	//finalcolor = vec3(position.z+0.8)/1.6;
-	finalcolor = vec3((camera_dist+transformed_model.z+0.5)); //w==1
+	finalcolor = vec3((camera_dist+transformed_model.z)*2); //w==1
 	//finalcolor = vec3((transformed_model.y+1)/2);
 }

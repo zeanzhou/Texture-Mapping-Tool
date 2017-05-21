@@ -27,6 +27,7 @@
 // OpenCV (homography)
 #include <opencv2/core/core.hpp>  
 #include <opencv2/highgui/highgui.hpp>  
+#include <opencv2/calib3d.hpp>
 
 // Properties
 GLuint screen_width = GetSystemMetrics(SM_CXSCREEN);
@@ -46,8 +47,9 @@ void set_model_coord(GLint xpos, GLint ypos, int index);
 
 // Coordination
 glm::vec4 vertex_coord[4];
-glm::vec4 texture_coord[4];
-
+glm::vec2 model_2D_coord[4];
+glm::vec2 texture_2D_coord[4];
+glm::mat4 homography_matrix;
 
 // Camera
 bool keys[1024];
@@ -317,8 +319,31 @@ void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 	model = glm::inverse(model);
 
 	GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
-	glm::vec4 sceen_coord = glm::vec4(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1, depth - 0.5 - camera_dist, 1.0f);
-	vertex_coord[index] = model * view * sceen_coord;
+	glm::vec4 screen_coord = glm::vec4(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1, depth - 0.5 - camera_dist, 1.0f);
+	model_2D_coord[index] = glm::vec2(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1);
+	vertex_coord[index] = model * view * screen_coord;
+}
+
+
+//  Texture_2D ~ H * model_2D <- input
+void calc_homography_matrix()
+{
+	cv::Mat p1(4, 2, CV_32F);
+	cv::Mat p2(4, 2, CV_32F);
+	for (int i = 0; i < 4; ++i)
+	{
+		p1.at<float>(i, 0) = model_2D_coord[i].x;
+		p1.at<float>(i, 1) = model_2D_coord[i].y;
+		p2.at<float>(i, 0) = texture_2D_coord[i].x;
+		p2.at<float>(i, 1) = texture_2D_coord[i].y;
+	}
+	cv::Mat m_homography = findHomography(p1, p2, CV_RANSAC); // 4x4
+	for (int i = 0; i<4;++i)
+		for (int j = 0; j < 4; ++j)
+		{
+			homography_matrix[i][j] = m_homography.at<float>(i, j);
+			cout << homography_matrix[i][j] << endl; // check only
+		}
 }
 
 #pragma region "User input"
@@ -407,7 +432,7 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 
 	if (window == objwindow)
 	{
-		if (button == GLFW_MOUSE_BUTTON_2 && action == GLFW_PRESS)
+		if (button == GLFW_MOUSE_BUTTON_2 && action == GLFW_PRESS) //debug only
 		{
 			unsigned char* pixel = new unsigned char[3 * 800 * 600];
 			glReadPixels(0, 0, 800, 600, GL_RGB, GL_UNSIGNED_BYTE, pixel);

@@ -24,6 +24,10 @@
 // Windows Libirary (console movement)
 #include <windows.h>
 
+// OpenCV (homography)
+#include <opencv2/core/core.hpp>  
+#include <opencv2/highgui/highgui.hpp>  
+
 // Properties
 GLuint screen_width = GetSystemMetrics(SM_CXSCREEN);
 GLuint screen_height = GetSystemMetrics(SM_CYSCREEN);

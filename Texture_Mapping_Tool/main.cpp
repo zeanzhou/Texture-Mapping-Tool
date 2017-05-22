@@ -307,6 +307,29 @@ int main()
 	return 0;
 }
 
+// Ax+By+Cz=D, suppose D=1
+glm::vec4 cvFitPlane(glm::vec3 points[], int length)
+{
+	cv::Mat src1(length, 3, CV_32F);
+	cv::Mat src2(length, 1, CV_32F);
+	cv::Mat dst(3, 1, CV_32F);
+	for (int i = 0; i < length; ++i)
+	{
+		src1.at<float>(i, 0) = points[i].x;
+		src1.at<float>(i, 1) = points[i].y;
+		src1.at<float>(i, 2) = points[i].z;
+		src2.at<float>(i, 0) = 1.0f;
+	}
+	cv::solve(src1, src2, dst, cv::DECOMP_SVD);
+	glm::vec4 coefficient = glm::vec4(
+		dst.at<float>(0),
+		dst.at<float>(1),
+		dst.at<float>(2),
+		1.0f
+	);
+	return coefficient;
+}
+
 void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 {
 	//glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 20.0f);

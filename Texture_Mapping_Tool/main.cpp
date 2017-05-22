@@ -58,7 +58,7 @@ GLfloat lastX = 400, lastY = 300;
 bool firstMouse = true;
 int current_camera_pos = 0;
 
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f)); // invalid 3.0f, will be replaced in viewSwitch..
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
@@ -111,7 +111,7 @@ int main()
 	Shader shader("obj.vs", "obj.frag");
 
 	// Load models
-	Model ourModel("nanosuit/nanosuit.obj");
+	Model ourModel("trophybox3.obj"); //nanosuit/nanosuit.obj
 	pModel = &ourModel;
 
 	// Draw in wireframe
@@ -228,7 +228,8 @@ int main()
 	/*===================Create Texture Window=====================*/
 	/*=============================================================*/
 
-
+	// Camera Init
+	camera.ViewSwitch(0);
 
 	// Game loop
 	while (!glfwWindowShouldClose(objwindow) && !glfwWindowShouldClose(texwindow))
@@ -250,7 +251,7 @@ int main()
 
 		shader.Use();   // <-- Don't forget this one!
 						// Transformation matrices
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 20.0f);
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));

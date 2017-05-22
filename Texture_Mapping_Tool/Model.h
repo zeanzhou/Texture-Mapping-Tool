@@ -13,6 +13,7 @@ using namespace std;
 #include <glm/gtc/matrix_transform.hpp>
 #include <SOIL.h>
 #include <assimp/Importer.hpp>
+#include <assimp/Exporter.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
@@ -37,21 +38,33 @@ public:
 			this->meshes[i].Draw(shader);
 	}
 
+	// Simply export obj from aiScene  // ZZA Added
+	void exportModel()
+	{
+		Assimp::Exporter exporter;
+		const aiExportFormatDesc* format = exporter.GetExportFormatDescription(3);
+		aiReturn ret = exporter.Export(this->out_scene, format->id, "output.obj", this->scene->mFlags);
+		if (ret != AI_SUCCESS)
+			cout << exporter.GetErrorString() << endl;
+	}
+
 private:
 	/*  Model Data  */
 	vector<Mesh> meshes;
 	string directory;
 	vector<Texture> textures_loaded;	// Stores all the textures loaded so far, optimization to make sure textures aren't loaded more than once.
+	const aiScene* scene; // ZZA Modified
+	aiScene* out_scene;
 
-										/*  Functions   */
-										// Loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
+	/*  Functions   */
+	// Loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
 	void loadModel(string path)
 	{
 		// Read file via ASSIMP
 		Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+		this->scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
 		// Check for errors
-		if (!scene || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
+		if (!this->scene || this->scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !this->scene->mRootNode) // if is Not Zero
 		{
 			cout << "ERROR::ASSIMP:: " << importer.GetErrorString() << endl;
 			return;
@@ -59,7 +72,9 @@ private:
 		// Retrieve the directory path of the filepath
 		this->directory = path.substr(0, path.find_last_of('/'));
 		// Process ASSIMP's root node recursively
-		this->processNode(scene->mRootNode, scene);
+		this->processNode(this->scene->mRootNode, this->scene);
+		// Copy a new pointer for modification (according to specification)  // ZZA Added
+		aiCopyScene(this->scene, &this->out_scene);
 	}
 
 	// Processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).
@@ -187,6 +202,8 @@ private:
 		}
 		return textures;
 	}
+
+
 };
 
 

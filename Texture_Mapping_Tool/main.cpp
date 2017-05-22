@@ -67,6 +67,8 @@ GLfloat lastFrame = 0.0f;
 GLFWwindow* objwindow;
 GLFWwindow* texwindow;
 
+// Global pointer
+Model* pModel = NULL;
 
 // The MAIN function, from here we start our application and run our Game loop
 int main()
@@ -110,10 +112,11 @@ int main()
 
 	// Load models
 	Model ourModel("nanosuit/nanosuit.obj");
+	pModel = &ourModel;
 
 	// Draw in wireframe
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
+	
 
 	/*==================Create Obj Model Window====================*/
 	/*=============================================================*/
@@ -425,6 +428,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	{
 		current_camera_pos = (current_camera_pos == 4) ? 0 : 5;
 		camera.ViewSwitch(current_camera_pos);
+	}
+	if (key == GLFW_KEY_S && action == GLFW_PRESS)
+	{
+		pModel->exportModel();
 	}
 }
 

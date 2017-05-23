@@ -63,12 +63,12 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f)); // invalid 3.0f, will be replaced in
 GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
+// Global pointer
+Model* pModel = NULL;
+
 // Window
 GLFWwindow* objwindow;
 GLFWwindow* texwindow;
-
-// Global pointer
-Model* pModel = NULL;
 
 // The MAIN function, from here we start our application and run our Game loop
 int main()
@@ -353,33 +353,33 @@ void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 	model = glm::inverse(model);
 
 	GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
-	glm::vec4 screen_coord = glm::vec4(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1, depth * 0.5 - camera_dist, 1.0f);
-	model_2D_coord[index] = glm::vec2(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1);
+	glm::vec4 screen_coord = glm::vec4((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1, depth * 0.5 - camera_dist, 1.0f);
+	model_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
 	vertex_coord[index] = model * view * screen_coord;
+	cout << screen_coord.x << " " << screen_coord.y << " " << screen_coord.z << endl;
 }
 
 void set_texture_coord(GLint xpos, GLint ypos, int index)
 {
-	texture_2D_coord[index] = glm::vec2(xpos / WIDTH * 2 - 1, (HEIGHT - ypos) / HEIGHT * 2 - 1);
+	texture_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
 }
 
 //  Texture_2D ~ H * model_2D <- input
 void calc_homography_matrix()
 {
-	cv::Mat p1(4, 2, CV_32F);
-	cv::Mat p2(4, 2, CV_32F);
+	vector<cv::Point2f> pts_src;
+	vector<cv::Point2f> pts_dst;
 	for (int i = 0; i < 4; ++i)
 	{
-		p1.at<float>(i, 0) = model_2D_coord[i].x;
-		p1.at<float>(i, 1) = model_2D_coord[i].y;
-		p2.at<float>(i, 0) = texture_2D_coord[i].x;
-		p2.at<float>(i, 1) = texture_2D_coord[i].y;
+		pts_src.push_back(cv::Point2f((float)model_2D_coord[i].x, (float)model_2D_coord[i].y));
+		pts_dst.push_back(cv::Point2f((float)texture_2D_coord[i].x, (float)texture_2D_coord[i].y));
 	}
-	cv::Mat m_homography = findHomography(p1, p2, CV_RANSAC); // 4x4
+	cv::Mat m_homography = findHomography(pts_src, pts_dst, CV_RANSAC); // 4x4
+	cout << m_homography << endl;
 	for (int i = 0; i < 3; ++i)
 		for (int j = 0; j < 3; ++j)
 		{
-			homography_matrix[i][j] = m_homography.at<float>(i, j);
+			homography_matrix[i][j] = m_homography.at<double>(i, j);
 			cout << homography_matrix[i][j] << endl; // check only
 		}
 }
@@ -437,10 +437,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 	if (key == GLFW_KEY_S && action == GLFW_PRESS)
 	{
+		cout << "[Info] Saving..." << endl;
 		pModel->exportModel();
+		cout << "[Info] Saved." << endl;
 	}
 	if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
 	{
+		cout << "[Info] Calculating texCoord..." << endl;
 		double avg_depth = vertex_coord[0].z + vertex_coord[1].z + vertex_coord[2].z + vertex_coord[3].z;
 		avg_depth *= 0.25;
 
@@ -448,8 +451,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		glm::mat4 model;
 		model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
 		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+		calc_homography_matrix();
 
-		pModel->updateNode(avg_depth, model * view, homography_matrix, current_camera_pos);
+		pModel->updateNode(avg_depth, view * model, homography_matrix, current_camera_pos);
+		cout << "[Info] Calculating finished." << endl;
 	}
 }
 
@@ -504,7 +509,7 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 				cout << "[Error] " << "Infinite depth!" << endl;
 				return;
 			}
-			std::cout << xpos << " " << ypos << " " << depth << std::endl;
+			//std::cout << xpos << " " << ypos << " " << depth << std::endl;
 			
 			if (point_selection_index % 2 == 0)
 			{

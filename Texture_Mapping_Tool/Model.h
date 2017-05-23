@@ -43,7 +43,7 @@ public:
 	{
 		Assimp::Exporter exporter;
 		const aiExportFormatDesc* format = exporter.GetExportFormatDescription(3);
-		aiReturn ret = exporter.Export(this->out_scene, format->id, "output.obj", this->scene->mFlags);
+		aiReturn ret = exporter.Export(this->out_scene, format->id, "./output1.obj");//
 		if (ret != AI_SUCCESS)
 			cout << exporter.GetErrorString() << endl;
 	}
@@ -89,7 +89,7 @@ public:
 	void updateMesh(aiMesh* mesh, double depth, glm::mat4 &m_model_view, glm::mat3 &m_homography, int index)
 	{
 		mesh->mMaterialIndex = index;
-
+		mesh->mNumUVComponents[index] = 2;
 
 		aiVector3D* TexCoords = new aiVector3D[mesh->mNumVertices];
 		mesh->mTextureCoords[index] = TexCoords;
@@ -106,10 +106,10 @@ public:
 			glm::vec3 coord = glm::vec3(coord_.x, coord_.y, coord_.z);
 
 			// This vertex is too far away from the front
-			if (fabs(coord.z - depth) >= 1e-2)
-				return;
+			//if (fabs(coord.z - depth) >= 1e-2)
+			//	return;
 
-			// Convert 3D vertex coordinate to model view coordinate
+			// Convert 3D vertex coordinate to model view coordinate, V * M * Vertex
 			glm::vec4 new_coord = m_model_view * glm::vec4(coord, 1.0f);
 
 
@@ -124,8 +124,8 @@ public:
 			// Calculate texture coordinate using homography matrix
 			glm::vec3 screen_coord = glm::vec3(new_coord.x, new_coord.y, 1.0f); // 3*1
 			glm::vec3 texture_coord = m_homography * screen_coord; // 3*3 * 3*1
-			mesh->mTextureCoords[index][i].x = texture_coord.x;
-			mesh->mTextureCoords[index][i].y = texture_coord.y;
+			mesh->mTextureCoords[index][i].x = (texture_coord.x/ texture_coord.z + 1) / 2;
+			mesh->mTextureCoords[index][i].y = (1 - texture_coord.y/ texture_coord.z) / 2;
 
 			//}
 		}
@@ -157,7 +157,7 @@ private:
 		// Process ASSIMP's root node recursively
 		this->processNode(this->scene->mRootNode, this->scene);
 		// Copy a new pointer for modification (according to specification)  // ZZA Added
-		aiCopyScene(this->scene, &this->out_scene);
+		aiCopyScene(this->scene, &(this->out_scene));
 	}
 
 	// Processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).

@@ -32,7 +32,7 @@
 // Properties
 GLuint screen_width = GetSystemMetrics(SM_CXSCREEN);
 GLuint screen_height = GetSystemMetrics(SM_CYSCREEN);
-GLuint WIDTH = 800, HEIGHT = 600;
+GLuint WIDTH = 600, HEIGHT = 600;
 
 // Function prototypes
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -49,7 +49,7 @@ void set_texture_coord(GLint xpos, GLint ypos, int index);
 glm::vec4 vertex_coord[4];
 glm::vec2 model_2D_coord[4];
 glm::vec2 texture_2D_coord[4];
-glm::mat4 homography_matrix;
+glm::mat3 homography_matrix;
 int point_selection_index;
 
 // Camera
@@ -186,26 +186,31 @@ int main()
 
 
 	// Load and create a texture 
-	GLuint texture1;
+	GLuint texture[6];
 	//GLuint texture2;
 	// ====================
 	// Texture 1
 	// ====================
-	glGenTextures(1, &texture1);
-	glBindTexture(GL_TEXTURE_2D, texture1); // All upcoming GL_TEXTURE_2D operations now have effect on our texture object
-											// Set our texture parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// Set texture wrapping to GL_REPEAT
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	// Set texture filtering
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	// Load, create texture and generate mipmaps
-	int width, height;
-	unsigned char* image = SOIL_load_image("container.jpg", &width, &height, 0, SOIL_LOAD_RGB);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-	glGenerateMipmap(GL_TEXTURE_2D);
-	SOIL_free_image_data(image);
-	glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done, so we won't accidentily mess up our texture.
+	for (int i = 0; i < 6; ++i)
+	{
+		glGenTextures(1, &texture[i]);
+		glBindTexture(GL_TEXTURE_2D, texture[i]); // All upcoming GL_TEXTURE_2D operations now have effect on our texture object
+												// Set our texture parameters
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// Set texture wrapping to GL_REPEAT
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		// Set texture filtering
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		// Load, create texture and generate mipmaps
+		int width, height;
+		std::string filename = "diffuseTexture" + std::to_string(i) + ".jpg";
+		unsigned char* image = SOIL_load_image(filename.c_str(), &width, &height, 0, SOIL_LOAD_RGB);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+		glGenerateMipmap(GL_TEXTURE_2D);
+		SOIL_free_image_data(image);
+		glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done, so we won't accidentily mess up our texture.
+	}
+
 	//// ===================
 	//// Texture 2
 	//// ===================
@@ -288,7 +293,7 @@ int main()
 
 		// Bind Textures using texture units
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture1);
+		glBindTexture(GL_TEXTURE_2D, texture[current_camera_pos]);
 		glUniform1i(glGetUniformLocation(ourShader.Program, "ourTexture1"), 0);
 		//glActiveTexture(GL_TEXTURE1);
 		//glBindTexture(GL_TEXTURE_2D, texture2);
@@ -371,8 +376,8 @@ void calc_homography_matrix()
 		p2.at<float>(i, 1) = texture_2D_coord[i].y;
 	}
 	cv::Mat m_homography = findHomography(p1, p2, CV_RANSAC); // 4x4
-	for (int i = 0; i<4;++i)
-		for (int j = 0; j < 4; ++j)
+	for (int i = 0; i < 3; ++i)
+		for (int j = 0; j < 3; ++j)
 		{
 			homography_matrix[i][j] = m_homography.at<float>(i, j);
 			cout << homography_matrix[i][j] << endl; // check only
@@ -433,6 +438,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_S && action == GLFW_PRESS)
 	{
 		pModel->exportModel();
+	}
+	if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
+	{
+		double avg_depth = vertex_coord[0].z + vertex_coord[1].z + vertex_coord[2].z + vertex_coord[3].z;
+		avg_depth *= 0.25;
+
+		glm::mat4 view = camera.GetViewMatrix();
+		glm::mat4 model;
+		model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
+		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+
+		pModel->updateNode(avg_depth, model * view, homography_matrix, current_camera_pos);
 	}
 }
 
@@ -500,8 +517,6 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 				set_model_coord(xpos, ypos, depth, (point_selection_index - 1) / 2);
 				cout << "[Info] " << (point_selection_index - 1) / 2 + 1 << "-th model point is changed..." << endl;
 			}
-				
-			
 		}
 	}
 	if (window == texwindow) // odd number: 1, 3, 5, 7

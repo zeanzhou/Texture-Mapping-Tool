@@ -48,6 +48,89 @@ public:
 			cout << exporter.GetErrorString() << endl;
 	}
 
+
+	void updateNode(double depth, glm::mat4 &m_model_view, glm::mat3 &m_homography, int index)
+	{
+		this->updateNode(this->out_scene->mRootNode, depth, m_model_view, m_homography, index);
+	}
+
+
+	void updateNode(aiNode* node, double depth, glm::mat4 &m_model_view, glm::mat3 &m_homography, int index)
+	{
+		aiMaterial* mat = new aiMaterial;
+		out_scene->mMaterials[index] = mat;
+
+		// Set the name of the material:
+		string materialName = "diffuseTexture" + std::to_string(index);
+		mat->AddProperty(&aiString(materialName.c_str()), AI_MATKEY_NAME);
+
+		// Set the first diffuse texture
+		string textureName = "diffuseTexture" + std::to_string(index) + ".jpg";
+		mat->AddProperty(&aiString(textureName.c_str()), AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0));
+
+		// Is it enough???
+
+		// Process each mesh located at the current node
+		for (GLuint i = 0; i < node->mNumMeshes; i++)
+		{
+			// The node object only contains indices to index the actual objects in the scene. 
+			// The scene contains all the data, node is just to keep stuff organized (like relations between nodes).
+			aiMesh* mesh = this->out_scene->mMeshes[node->mMeshes[i]];
+			this->updateMesh(mesh, depth, m_model_view, m_homography, index);
+		}
+		// After we've processed all of the meshes (if any) we then recursively process each of the children nodes
+		for (GLuint i = 0; i < node->mNumChildren; i++)
+		{
+			this->updateNode(node->mChildren[i], depth, m_model_view, m_homography, index);
+		}
+		//out_scene->mMeshes[0]->mTextureCoords
+	}
+
+	void updateMesh(aiMesh* mesh, double depth, glm::mat4 &m_model_view, glm::mat3 &m_homography, int index)
+	{
+		mesh->mMaterialIndex = index;
+
+
+		aiVector3D* TexCoords = new aiVector3D[mesh->mNumVertices];
+		mesh->mTextureCoords[index] = TexCoords;
+
+		// Walk through each of the mesh's vertices
+		for (GLuint i = 0; i < mesh->mNumVertices; ++i)
+		{
+			// Initialize all texture coordinate to 0.0f
+			mesh->mTextureCoords[index][i].x = 0.0f;
+			mesh->mTextureCoords[index][i].y = 0.0f;
+		
+			// Set a reference to simlify the following code
+			const aiVector3D &coord_ = mesh->mVertices[i];
+			glm::vec3 coord = glm::vec3(coord_.x, coord_.y, coord_.z);
+
+			// This vertex is too far away from the front
+			if (fabs(coord.z - depth) >= 1e-2)
+				return;
+
+			// Convert 3D vertex coordinate to model view coordinate
+			glm::vec4 new_coord = m_model_view * glm::vec4(coord, 1.0f);
+
+
+			// Calculate lvalue of the plane equation Ax+By+Cz=1
+			//const double lvalue = coord.x * coefficient.x + coord.y * coefficient.y + coord.z + coefficient.z;
+
+			// This vertex is on the selected plane, compare lvalue with rvalue(1)
+			//if (true)//(fabs(lvalue - 1) < 1e-2) // NO NEED TOCHECK 
+			//{
+
+
+			// Calculate texture coordinate using homography matrix
+			glm::vec3 screen_coord = glm::vec3(new_coord.x, new_coord.y, 1.0f); // 3*1
+			glm::vec3 texture_coord = m_homography * screen_coord; // 3*3 * 3*1
+			mesh->mTextureCoords[index][i].x = texture_coord.x;
+			mesh->mTextureCoords[index][i].y = texture_coord.y;
+
+			//}
+		}
+	}
+
 private:
 	/*  Model Data  */
 	vector<Mesh> meshes;
@@ -139,7 +222,7 @@ private:
 				vertex.TexCoords = glm::vec2(0.0f, 0.0f);
 			vertices.push_back(vertex);
 		}
-		// Now wak through each of the mesh's faces (a face is a mesh its triangle) and retrieve the corresponding vertex indices.
+		// Now walk through each of the mesh's faces (a face is a mesh its triangle) and retrieve the corresponding vertex indices.
 		for (GLuint i = 0; i < mesh->mNumFaces; i++)
 		{
 			aiFace face = mesh->mFaces[i];

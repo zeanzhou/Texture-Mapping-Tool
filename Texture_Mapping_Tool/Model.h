@@ -49,14 +49,15 @@ public:
 	}
 
 
-	void updateNode(double depth, glm::mat4 &m_model_view, glm::mat3 &m_homography, int index)
+	void updateNode(double depth, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
 	{
-		this->updateNode(this->out_scene->mRootNode, depth, m_model_view, m_homography, index);
+		this->updateNode(this->out_scene->mRootNode, depth, m_PVM, m_homography, index);
 	}
 
 
-	void updateNode(aiNode* node, double depth, glm::mat4 &m_model_view, glm::mat3 &m_homography, int index)
+	void updateNode(aiNode* node, double depth, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
 	{
+		index = 0;
 		aiMaterial* mat = new aiMaterial;
 		out_scene->mMaterials[index] = mat;
 
@@ -76,17 +77,17 @@ public:
 			// The node object only contains indices to index the actual objects in the scene. 
 			// The scene contains all the data, node is just to keep stuff organized (like relations between nodes).
 			aiMesh* mesh = this->out_scene->mMeshes[node->mMeshes[i]];
-			this->updateMesh(mesh, depth, m_model_view, m_homography, index);
+			this->updateMesh(mesh, depth, m_PVM, m_homography, index);
 		}
 		// After we've processed all of the meshes (if any) we then recursively process each of the children nodes
 		for (GLuint i = 0; i < node->mNumChildren; i++)
 		{
-			this->updateNode(node->mChildren[i], depth, m_model_view, m_homography, index);
+			this->updateNode(node->mChildren[i], depth, m_PVM, m_homography, index);
 		}
 		//out_scene->mMeshes[0]->mTextureCoords
 	}
 
-	void updateMesh(aiMesh* mesh, double depth, glm::mat4 &m_model_view, glm::mat3 &m_homography, int index)
+	void updateMesh(aiMesh* mesh, double depth, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
 	{
 		mesh->mMaterialIndex = index;
 		mesh->mNumUVComponents[index] = 2;
@@ -110,8 +111,12 @@ public:
 			//	return;
 
 			// Convert 3D vertex coordinate to model view coordinate, V * M * Vertex
-			glm::vec4 new_coord = m_model_view * glm::vec4(coord, 1.0f);
+			glm::vec4 new_coord = m_PVM * glm::vec4(coord, 1.0f);
 
+			// Convert to NDC
+			new_coord.x /= new_coord.w;
+			new_coord.y /= new_coord.w;
+			new_coord.z /= new_coord.w;
 
 			// Calculate lvalue of the plane equation Ax+By+Cz=1
 			//const double lvalue = coord.x * coefficient.x + coord.y * coefficient.y + coord.z + coefficient.z;
@@ -124,8 +129,8 @@ public:
 			// Calculate texture coordinate using homography matrix
 			glm::vec3 screen_coord = glm::vec3(new_coord.x, new_coord.y, 1.0f); // 3*1
 			glm::vec3 texture_coord = m_homography * screen_coord; // 3*3 * 3*1
-			mesh->mTextureCoords[index][i].x = (texture_coord.x/ texture_coord.z + 1) / 2;
-			mesh->mTextureCoords[index][i].y = (1 - texture_coord.y/ texture_coord.z) / 2;
+			mesh->mTextureCoords[index][i].x = (1 + texture_coord.x/ texture_coord.z) / 2.0f;
+			mesh->mTextureCoords[index][i].y = (1 + texture_coord.y/ texture_coord.z) / 2.0f;
 
 			//}
 		}

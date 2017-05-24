@@ -244,3 +244,5 @@ ModelManifest.xml
 .mtl
 *.mtl
 *.jpg
+/Texture_Mapping_Tool/for_zean
+*.rar

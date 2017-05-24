@@ -111,7 +111,7 @@ int main()
 	Shader shader("obj.vs", "obj.frag");
 
 	// Load models
-	Model ourModel("trophybox3.obj"); //nanosuit/nanosuit.obj
+	Model ourModel("1.obj"); //nanosuit/nanosuit.obj
 	pModel = &ourModel;
 
 	// Draw in wireframe
@@ -256,7 +256,9 @@ int main()
 
 		shader.Use();   // <-- Don't forget this one!
 						// Transformation matrices
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+		
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000.0f);
+		//glm::mat4 projection = glm::ortho(-5, 5, -5, 5);
 		glm::mat4 view = camera.GetViewMatrix();
 		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
@@ -269,7 +271,7 @@ int main()
 
 		// Draw the loaded model
 		glm::mat4 model;
-		model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f)); // Translate it down a bit so it's at the center of the scene
+		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // Translate it down a bit so it's at the center of the scene
 		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// It's a bit too big for our scene, so scale it down
 		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
 		ourModel.Draw(shader);
@@ -344,7 +346,7 @@ void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 	//glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 20.0f);
 	glm::mat4 view = camera.GetViewMatrix();
 	glm::mat4 model;
-	model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
+	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
 	model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
 	
 	// Get Inverse of P, V ,M Matrix
@@ -356,12 +358,13 @@ void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 	glm::vec4 screen_coord = glm::vec4((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1, depth * 0.5 - camera_dist, 1.0f);
 	model_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
 	vertex_coord[index] = model * view * screen_coord;
-	cout << screen_coord.x << " " << screen_coord.y << " " << screen_coord.z << endl;
+	cout << model_2D_coord[index].x << " " << model_2D_coord[index].y << endl;
 }
 
 void set_texture_coord(GLint xpos, GLint ypos, int index)
 {
 	texture_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
+	cout << texture_2D_coord[index].x << " " << texture_2D_coord[index].y << endl;
 }
 
 //  Texture_2D ~ H * model_2D <- input
@@ -379,8 +382,7 @@ void calc_homography_matrix()
 	for (int i = 0; i < 3; ++i)
 		for (int j = 0; j < 3; ++j)
 		{
-			homography_matrix[i][j] = m_homography.at<double>(i, j);
-			cout << homography_matrix[i][j] << endl; // check only
+			homography_matrix[i][j] = m_homography.at<double>(j, i);
 		}
 }
 
@@ -392,7 +394,7 @@ void Do_Movement()
 	// Camera controls
 	if (keys[GLFW_KEY_W])
 		camera.ProcessKeyboard(FORWARD, deltaTime);
-	if (keys[GLFW_KEY_S])
+	if (keys[GLFW_KEY_X])
 		camera.ProcessKeyboard(BACKWARD, deltaTime);
 	if (keys[GLFW_KEY_A])
 		camera.ProcessKeyboard(LEFT, deltaTime);
@@ -447,13 +449,14 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		double avg_depth = vertex_coord[0].z + vertex_coord[1].z + vertex_coord[2].z + vertex_coord[3].z;
 		avg_depth *= 0.25;
 
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 		glm::mat4 model;
-		model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
+		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
 		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
 		calc_homography_matrix();
 
-		pModel->updateNode(avg_depth, view * model, homography_matrix, current_camera_pos);
+		pModel->updateNode(avg_depth, projection * view * model, homography_matrix, current_camera_pos);
 		cout << "[Info] Calculating finished." << endl;
 	}
 }
@@ -507,7 +510,7 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 			if (depth == 0)
 			{
 				cout << "[Error] " << "Infinite depth!" << endl;
-				return;
+				//return;
 			}
 			//std::cout << xpos << " " << ypos << " " << depth << std::endl;
 			

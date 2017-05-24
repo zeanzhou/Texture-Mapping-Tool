@@ -25,8 +25,8 @@ const GLfloat YAW = -90.0f;
 const GLfloat PITCH = 0.0f;
 const GLfloat SPEED = 3.0f;
 const GLfloat SENSITIVTY = 0.25f;
-const GLfloat ZOOM = 45.0f;
-const GLfloat FARAWAY = 20.0f; // 3.0f as default
+const GLfloat ZOOM = 0.3f;
+const GLfloat FARAWAY = 80000.0f; // 3.0f as default
 
 // An abstract camera class that processes input and calculates the corresponding Eular Angles, Vectors and Matrices for use in OpenGL
 class Camera
@@ -34,7 +34,7 @@ class Camera
 public:
 	// Camera Attributes
 	glm::vec3 Position;
-	glm::vec3 Front;
+	glm::vec3 Front; 
 	glm::vec3 Up;
 	glm::vec3 Right;
 	glm::vec3 WorldUp;
@@ -114,12 +114,12 @@ public:
 	// Processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
 	void ProcessMouseScroll(GLfloat yoffset)
 	{
-		if (this->Zoom >= 1.0f && this->Zoom <= 45.0f)
+		if (this->Zoom >= 1.0f && this->Zoom <= 85.0f)
 			this->Zoom -= yoffset;
 		if (this->Zoom <= 1.0f)
 			this->Zoom = 1.0f;
-		if (this->Zoom >= 45.0f)
-			this->Zoom = 45.0f;
+		if (this->Zoom >= 85.0f)
+			this->Zoom = 85.0f;
 	}
 
 	void ViewSwitch(int pos)

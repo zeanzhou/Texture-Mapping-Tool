@@ -16,9 +16,10 @@ void main()
 {
     gl_Position = projection * view * model * vec4(position, 1.0f);
     TexCoords = texCoords;
-
+	
 	vec4 transformed_model = view * model * vec4(position, 1.0f);
 	//finalcolor = vec3(position.z+0.8)/1.6;
-	finalcolor = vec3((camera_dist+transformed_model.z-2)/2); //w==1 *2
-	//finalcolor = vec3((gl_Position.x));
+	//finalcolor = vec3((camera_dist+transformed_model.z-2)/2); //w==1 *2
+	finalcolor = vec3(1.0f); 
+	finalcolor = vec3((gl_Position.y/gl_Position.w+1)/2);
 }

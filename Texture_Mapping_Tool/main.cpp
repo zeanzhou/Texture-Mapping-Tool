@@ -28,11 +28,12 @@
 #include <opencv2/core/core.hpp>  
 #include <opencv2/highgui/highgui.hpp>  
 #include <opencv2/calib3d.hpp>
+#include <opencv2/imgproc.hpp>
 
 // Properties
 GLuint screen_width = GetSystemMetrics(SM_CXSCREEN);
 GLuint screen_height = GetSystemMetrics(SM_CYSCREEN);
-GLuint WIDTH = 600, HEIGHT = 600;
+GLuint WIDTH = 720, HEIGHT = 1080;
 
 // Function prototypes
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -66,6 +67,9 @@ GLfloat lastFrame = 0.0f;
 // Global pointer
 Model* pModel = NULL;
 
+// Load OpenCV Image
+cv::Mat image[6];
+
 // Window
 GLFWwindow* objwindow;
 GLFWwindow* texwindow;
@@ -86,7 +90,8 @@ int main()
 	/*==================Create Obj Model Window====================*/
 	objwindow = glfwCreateWindow(WIDTH, HEIGHT, "OBJ Model", nullptr, nullptr); // Windowed
 	glfwMakeContextCurrent(objwindow);
-	glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 400);
+	//glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 400);
+	glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 0);
 
 	// Set the required callback functions
 	glfwSetKeyCallback(objwindow, key_callback);
@@ -111,7 +116,7 @@ int main()
 	Shader shader("obj.vs", "obj.frag");
 
 	// Load models
-	Model ourModel("1.obj"); //nanosuit/nanosuit.obj
+	Model ourModel("bottle/body2.obj"); //nanosuit/nanosuit.obj
 	pModel = &ourModel;
 
 	// Draw in wireframe
@@ -128,7 +133,9 @@ int main()
 	// Create a GLFWwindow object that we can use for GLFW's functions
 	texwindow = glfwCreateWindow(WIDTH, HEIGHT, "Texture", nullptr, nullptr);
 	glfwMakeContextCurrent(texwindow);
-	glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 400);
+	//glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 400);
+	glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 0);
+
 
 	// Set the required callback functions
 	glfwSetKeyCallback(texwindow, key_callback);
@@ -187,6 +194,9 @@ int main()
 
 	// Load and create a texture 
 	GLuint texture[6];
+
+
+
 	//GLuint texture2;
 	// ====================
 	// Texture 1
@@ -204,6 +214,7 @@ int main()
 		// Load, create texture and generate mipmaps
 		int width, height;
 		std::string filename = "diffuseTexture" + std::to_string(i) + ".jpg";
+		image[i] = cv::imread(filename);
 		unsigned char* image = SOIL_load_image(filename.c_str(), &width, &height, 0, SOIL_LOAD_RGB);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
 		glGenerateMipmap(GL_TEXTURE_2D);
@@ -272,7 +283,7 @@ int main()
 		// Draw the loaded model
 		glm::mat4 model;
 		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // Translate it down a bit so it's at the center of the scene
-		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));	// It's a bit too big for our scene, so scale it down
+		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// It's a bit too big for our scene, so scale it down
 		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
 		ourModel.Draw(shader);
 
@@ -344,26 +355,28 @@ glm::vec4 cvFitPlane(glm::vec3 points[], int length)
 void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 {
 	//glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 20.0f);
-	glm::mat4 view = camera.GetViewMatrix();
-	glm::mat4 model;
-	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-	model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+	//glm::mat4 view = camera.GetViewMatrix();
+	//glm::mat4 model;
+	//model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+	//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 	
 	// Get Inverse of P, V ,M Matrix
 	//projection = glm::inverse(projection);
-	view = glm::inverse(view);
-	model = glm::inverse(model);
+	//view = glm::inverse(view);
+	//model = glm::inverse(model);
 
-	GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
-	glm::vec4 screen_coord = glm::vec4((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1, depth * 0.5 - camera_dist, 1.0f);
-	model_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
-	vertex_coord[index] = model * view * screen_coord;
+	//GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
+	//glm::vec4 screen_coord = glm::vec4((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1, depth * 0.5 - camera_dist, 1.0f);
+	//model_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
+	model_2D_coord[index] = glm::vec2((double)xpos * 4000.0f / WIDTH, (double)ypos * 4000.0f / WIDTH);
+	//vertex_coord[index] = model * view * screen_coord;
 	cout << model_2D_coord[index].x << " " << model_2D_coord[index].y << endl;
 }
 
 void set_texture_coord(GLint xpos, GLint ypos, int index)
 {
-	texture_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
+	//texture_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
+	texture_2D_coord[index] = glm::vec2((double)xpos * 4000.0f / WIDTH, (double)ypos * 4000.0f / WIDTH);
 	cout << texture_2D_coord[index].x << " " << texture_2D_coord[index].y << endl;
 }
 
@@ -377,13 +390,44 @@ void calc_homography_matrix()
 		pts_src.push_back(cv::Point2f((float)model_2D_coord[i].x, (float)model_2D_coord[i].y));
 		pts_dst.push_back(cv::Point2f((float)texture_2D_coord[i].x, (float)texture_2D_coord[i].y));
 	}
-	cv::Mat m_homography = findHomography(pts_src, pts_dst, CV_RANSAC); // 4x4
+	cv::Mat m_homography = findHomography(pts_src, pts_dst); // 4x4
+	cv::Mat wMat;
+	cv::warpPerspective(image[current_camera_pos], wMat, m_homography, cv::Size(image[current_camera_pos].cols, image[current_camera_pos].rows), 
+		cv::InterpolationFlags::INTER_NEAREST | cv::InterpolationFlags::WARP_INVERSE_MAP);
+	char nameBuf[256];
+	sprintf(nameBuf, "warped_%02d.png", current_camera_pos);
+	cv::imwrite(nameBuf, wMat);
 	cout << m_homography << endl;
 	for (int i = 0; i < 3; ++i)
 		for (int j = 0; j < 3; ++j)
 		{
 			homography_matrix[i][j] = m_homography.at<double>(j, i);
 		}
+}
+
+void print_view_matrix()
+{
+	glm::mat4 view = camera.GetViewMatrix();
+	glm::mat3 R = glm::mat3(view);
+	glm::vec3 T = glm::vec3(view[3]);
+
+	glm::mat4 result = glm::transpose(R);
+	result[3] = glm::vec4(-glm::transpose(R)*T, 1.0f);
+
+	//glm::mat4 inv = glm::inverse(view);
+	string filename = "viewMatrix" + std::to_string(current_camera_pos) + ".txt";
+	fstream pfile(filename, ios::out);
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+			pfile << result[j][i] << " ";
+		pfile << endl;
+	}
+	pfile.close();
+	cout << filename << endl;
+	//cout << R << endl;
+	//cout << T << endl;
+	//cout << view << endl;
 }
 
 #pragma region "User input"
@@ -421,21 +465,25 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	{
 		current_camera_pos = (current_camera_pos + 3) % 4;
 		camera.ViewSwitch(current_camera_pos);
+		print_view_matrix();
 	}
 	if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
 	{
 		current_camera_pos = (current_camera_pos + 1) % 4;
 		camera.ViewSwitch(current_camera_pos);
+		print_view_matrix();
 	}
 	if (key == GLFW_KEY_UP && action == GLFW_PRESS)
 	{
 		current_camera_pos = (current_camera_pos == 5) ? 0 : 4;
 		camera.ViewSwitch(current_camera_pos);
+		print_view_matrix();
 	}
 	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
 	{
 		current_camera_pos = (current_camera_pos == 4) ? 0 : 5;
 		camera.ViewSwitch(current_camera_pos);
+		print_view_matrix();
 	}
 	if (key == GLFW_KEY_S && action == GLFW_PRESS)
 	{
@@ -453,9 +501,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		glm::mat4 view = camera.GetViewMatrix();
 		glm::mat4 model;
 		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-		model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 		calc_homography_matrix();
-
+		print_view_matrix();
 		pModel->updateNode(avg_depth, projection * view * model, homography_matrix, current_camera_pos);
 		cout << "[Info] Calculating finished." << endl;
 	}

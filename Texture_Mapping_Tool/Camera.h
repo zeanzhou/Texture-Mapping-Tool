@@ -25,8 +25,8 @@ const GLfloat YAW = -90.0f;
 const GLfloat PITCH = 0.0f;
 const GLfloat SPEED = 3.0f;
 const GLfloat SENSITIVTY = 0.25f;
-const GLfloat ZOOM = 0.3f;
-const GLfloat FARAWAY = 80000.0f; // 3.0f as default
+const GLfloat ZOOM = 5.4049f; // degree
+const GLfloat FARAWAY = 3000.0f; // 3.0f as default
 
 // An abstract camera class that processes input and calculates the corresponding Eular Angles, Vectors and Matrices for use in OpenGL
 class Camera
@@ -126,11 +126,11 @@ public:
 	{
 		glm::vec3 camera_pos[6] = {
 			glm::vec3(0.0f,  0.0f,  FARAWAY),
-			glm::vec3(FARAWAY,  0.0f,  0.0f),
+			glm::vec3(FARAWAY,  0.0f,  -80.0f),
 			glm::vec3(0.0f,  0.0f, -FARAWAY),
-			glm::vec3(-FARAWAY, 0.0f,  0.0f),
-			glm::vec3(0.0f,  FARAWAY,  0.0f),
-			glm::vec3(0.0f, -FARAWAY,  0.0f)
+			glm::vec3(-FARAWAY, 0.0f,  -80.0f),
+			glm::vec3(0.0f,  FARAWAY,  -80.0f),
+			glm::vec3(0.0f, -FARAWAY,  -80.0f)
 		};
 		GLfloat camera_yaw[6] = {
 			-90, -180, -270, -360, -270, -270
@@ -138,9 +138,18 @@ public:
 		GLfloat camera_pitch[6] = {
 			0, 0, 0, 0, -90, 90
 		};
+		glm::vec3 world_ups[6] = {
+			glm::vec3(-1.0f,  0.0f,  0.0f),
+			glm::vec3(0.0f,  0.0f,  1.0f),
+			glm::vec3(-1.0f,  0.0f,  0.0f),// -1.0f
+			glm::vec3(0.0f,  0.0f,  1.0f),
+			glm::vec3(0.0f,  0.0f,  1.0f),
+			glm::vec3(0.0f,  0.0f,  1.0f)
+		};
 		this->Position = camera_pos[pos];
 		this->Yaw = camera_yaw[pos];
 		this->Pitch = camera_pitch[pos];
+		this->WorldUp = world_ups[pos];
 		this->updateCameraVectors();
 	}
 private:

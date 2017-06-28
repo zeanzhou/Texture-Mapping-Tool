@@ -21,6 +21,9 @@ using namespace std;
 
 GLint TextureFromFile(const char* path, string directory);
 
+#define MAX(a, b) (((a)>(b))?(a):(b))
+#define MIN(a, b) (((a)<(b))?(a):(b))
+
 class Model
 {
 public:
@@ -49,14 +52,19 @@ public:
 	}
 
 
-	void updateNode(double depth, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
+	void updateNode(double depth, glm::mat4 &m_VM, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
 	{
-		this->updateNode(this->out_scene->mRootNode, depth, m_PVM, m_homography, index);
+		this->updateNode(this->out_scene->mRootNode, depth, m_VM, m_PVM, m_homography, index);
 	}
 
 
-	void updateNode(aiNode* node, double depth, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
+	void updateNode(aiNode* node, double depth, glm::mat4 &m_VM, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
 	{
+		// Release former-allocated resources
+		if (out_scene->mMaterials[index])
+			delete out_scene->mMaterials[index];
+
+		// Allocate memory for material
 		index = 0;
 		aiMaterial* mat = new aiMaterial;
 		out_scene->mMaterials[index] = mat;
@@ -77,18 +85,19 @@ public:
 			// The node object only contains indices to index the actual objects in the scene. 
 			// The scene contains all the data, node is just to keep stuff organized (like relations between nodes).
 			aiMesh* mesh = this->out_scene->mMeshes[node->mMeshes[i]];
-			this->updateMesh(mesh, depth, m_PVM, m_homography, index);
+			this->updateMesh(mesh, depth, m_VM, m_PVM, m_homography, index);
 		}
 		// After we've processed all of the meshes (if any) we then recursively process each of the children nodes
 		for (GLuint i = 0; i < node->mNumChildren; i++)
 		{
-			this->updateNode(node->mChildren[i], depth, m_PVM, m_homography, index);
+			this->updateNode(node->mChildren[i], depth, m_VM, m_PVM, m_homography, index);
 		}
 		//out_scene->mMeshes[0]->mTextureCoords
 	}
 
-	void updateMesh(aiMesh* mesh, double depth, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
+	void updateMesh(aiMesh* mesh, double depth, glm::mat4 &m_VM, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
 	{
+		// Assign material index
 		mesh->mMaterialIndex = index;
 		mesh->mNumUVComponents[index] = 2;
 
@@ -107,8 +116,16 @@ public:
 			glm::vec3 coord = glm::vec3(coord_.x, coord_.y, coord_.z);
 
 			// This vertex is too far away from the front
-			//if (fabs(coord.z - depth) >= 1e-2)
-			//	return;
+			glm::vec4 transformed_model = m_VM * glm::vec4(coord, 1.0f);
+			GLfloat finalcolor = transformed_model.z / this->getMaxBoundingValue(index) / 5 * 4 + 0.2;
+			//if (transformed_model.z * this->getMaxBoundingValue(index) < 0) // cull the other half
+			//	continue;
+			//if (fabs(fabs(finalcolor) - depth) >= 0.1) // cull vertex outside my selected plane
+			//	continue;
+			if (finalcolor < depth) // cull vertex I can't see?
+				continue;
+			//if (I can't see these vertex)
+			//continue
 
 			// Convert 3D vertex coordinate to model view coordinate, V * M * Vertex
 			glm::vec4 new_coord = m_PVM * glm::vec4(coord, 1.0f);
@@ -136,6 +153,12 @@ public:
 		}
 	}
 
+	GLfloat getMaxBoundingValue(GLint index) {
+		if (index < 0 || index > 6)
+			return 0.0f;
+		return this->max_bounding_value[index];
+	}
+
 private:
 	/*  Model Data  */
 	vector<Mesh> meshes;
@@ -143,11 +166,13 @@ private:
 	vector<Texture> textures_loaded;	// Stores all the textures loaded so far, optimization to make sure textures aren't loaded more than once.
 	const aiScene* scene; // ZZA Modified
 	aiScene* out_scene;
+	GLfloat max_bounding_value[6]; // ZZA Modified
 
 	/*  Functions   */
 	// Loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
 	void loadModel(string path)
 	{
+		max_bounding_value[6] = { 0 };
 		// Read file via ASSIMP
 		Assimp::Importer importer;
 		this->scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -163,6 +188,12 @@ private:
 		this->processNode(this->scene->mRootNode, this->scene);
 		// Copy a new pointer for modification (according to specification)  // ZZA Added
 		aiCopyScene(this->scene, &(this->out_scene));
+		//cout << this->out_scene->mMaterials << " " << this->out_scene->mNumMaterials << endl;
+		//cout << endl;
+		this->out_scene->mMaterials = new aiMaterial*[6];
+		for (int i = 0; i < 6; ++i)
+			this->out_scene->mMaterials[i] = new aiMaterial;
+		this->out_scene->mNumMaterials = 6;
 	}
 
 	// Processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).
@@ -174,7 +205,7 @@ private:
 			// The node object only contains indices to index the actual objects in the scene. 
 			// The scene contains all the data, node is just to keep stuff organized (like relations between nodes).
 			aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-			this->meshes.push_back(this->processMesh(mesh, scene));
+			this->meshes.push_back(this->processMesh(mesh, scene, this->max_bounding_value));
 		}
 		// After we've processed all of the meshes (if any) we then recursively process each of the children nodes
 		for (GLuint i = 0; i < node->mNumChildren; i++)
@@ -184,12 +215,13 @@ private:
 
 	}
 
-	Mesh processMesh(aiMesh* mesh, const aiScene* scene)
+	Mesh processMesh(aiMesh* mesh, const aiScene* scene, GLfloat* local_max_bounding_value)
 	{
 		// Data to fill
 		vector<Vertex> vertices;
 		vector<GLuint> indices;
 		vector<Texture> textures;
+		//GLfloat local_max_bounding_value[6] = { 0 };
 
 		// Walk through each of the mesh's vertices
 		for (GLuint i = 0; i < mesh->mNumVertices; i++)
@@ -202,8 +234,16 @@ private:
 			vector.z = mesh->mVertices[i].z;
 			vertex.Position = vector;
 			//std::cout << vector.z << std::endl;
+
+			local_max_bounding_value[1] = MAX(local_max_bounding_value[1], vector.x); // x-axis pos
+			local_max_bounding_value[3] = MIN(local_max_bounding_value[3], vector.x); // x-axis neg
+			local_max_bounding_value[4] = MAX(local_max_bounding_value[4], vector.y); // y-axis pos
+			local_max_bounding_value[5] = MIN(local_max_bounding_value[5], vector.y); // y-axis neg
+			local_max_bounding_value[0] = MAX(local_max_bounding_value[0], vector.z); // z-axis pos
+			local_max_bounding_value[2] = MIN(local_max_bounding_value[2], vector.z); // z-axis neg
+
 			// Normals
-			if (mesh->mNormals) // Does the mesh contain normals? // ZZA Added
+			if (mesh->HasNormals()) // Does the mesh contain normals? // ZZA Added
 			{
 				vector.x = mesh->mNormals[i].x;
 				vector.y = mesh->mNormals[i].y;
@@ -211,7 +251,7 @@ private:
 				vertex.Normal = vector;
 			}
 			else
-				vertex.Normal = glm::vec3(0.0f, 0.0f, 0.0f);
+				vertex.Normal = glm::vec3(1.0f, 1.0f, 1.0f);
 
 			// Texture Coordinates
 			if (mesh->mTextureCoords[0]) // Does the mesh contain texture coordinates?

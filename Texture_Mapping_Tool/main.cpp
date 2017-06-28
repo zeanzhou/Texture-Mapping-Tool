@@ -33,7 +33,7 @@
 // Properties
 GLuint screen_width = GetSystemMetrics(SM_CXSCREEN);
 GLuint screen_height = GetSystemMetrics(SM_CYSCREEN);
-GLuint WIDTH = 720, HEIGHT = 1080;
+GLuint WIDTH = 800, HEIGHT = 800;
 
 // Function prototypes
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -47,7 +47,7 @@ void set_model_coord(GLint xpos, GLint ypos, double depth, int index);
 void set_texture_coord(GLint xpos, GLint ypos, int index);
 
 // Coordination
-glm::vec4 vertex_coord[4];
+glm::vec4 vertex_color[4];
 glm::vec2 model_2D_coord[4];
 glm::vec2 texture_2D_coord[4];
 glm::mat3 homography_matrix;
@@ -68,7 +68,7 @@ GLfloat lastFrame = 0.0f;
 Model* pModel = NULL;
 
 // Load OpenCV Image
-cv::Mat image[6];
+cv::Mat cvimage[6];
 
 // Window
 GLFWwindow* objwindow;
@@ -90,8 +90,8 @@ int main()
 	/*==================Create Obj Model Window====================*/
 	objwindow = glfwCreateWindow(WIDTH, HEIGHT, "OBJ Model", nullptr, nullptr); // Windowed
 	glfwMakeContextCurrent(objwindow);
-	//glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 400);
-	glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 0);
+	glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 200);
+	//glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 0);
 
 	// Set the required callback functions
 	glfwSetKeyCallback(objwindow, key_callback);
@@ -116,7 +116,8 @@ int main()
 	Shader shader("obj.vs", "obj.frag");
 
 	// Load models
-	Model ourModel("bottle/body2.obj"); //nanosuit/nanosuit.obj
+	Model ourModel("red_bottle.obj");//trophybox3.obj
+	//Model ourModel("bottle/body2.obj"); //nanosuit/nanosuit.obj
 	pModel = &ourModel;
 
 	// Draw in wireframe
@@ -133,8 +134,8 @@ int main()
 	// Create a GLFWwindow object that we can use for GLFW's functions
 	texwindow = glfwCreateWindow(WIDTH, HEIGHT, "Texture", nullptr, nullptr);
 	glfwMakeContextCurrent(texwindow);
-	//glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 400);
-	glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 0);
+	glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 200);
+	//glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 0);
 
 
 	// Set the required callback functions
@@ -152,7 +153,7 @@ int main()
 
 	// Build and compile our shader program
 	Shader ourShader("tex.vs", "tex.frag");
-
+	
 
 	// Set up vertex data (and buffer(s)) and attribute pointers
 	GLfloat vertices[] = {
@@ -214,7 +215,7 @@ int main()
 		// Load, create texture and generate mipmaps
 		int width, height;
 		std::string filename = "diffuseTexture" + std::to_string(i) + ".jpg";
-		image[i] = cv::imread(filename);
+		cvimage[i] = cv::imread(filename);
 		unsigned char* image = SOIL_load_image(filename.c_str(), &width, &height, 0, SOIL_LOAD_RGB);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
 		glGenerateMipmap(GL_TEXTURE_2D);
@@ -278,7 +279,8 @@ int main()
 		// Camera Distance
 		GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
 		glUniform1f(glGetUniformLocation(shader.Program, "camera_dist"), camera_dist);
-		//std:cout << camera_dist << std::endl;
+		glUniform1f(glGetUniformLocation(shader.Program, "max_bounding_value"), ourModel.getMaxBoundingValue(current_camera_pos));
+		//std:cout << ourModel.getMaxBoundingValue(current_camera_pos) << std::endl;
 
 		// Draw the loaded model
 		glm::mat4 model;
@@ -367,16 +369,18 @@ void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 
 	//GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
 	//glm::vec4 screen_coord = glm::vec4((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1, depth * 0.5 - camera_dist, 1.0f);
-	//model_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
-	model_2D_coord[index] = glm::vec2((double)xpos * 4000.0f / WIDTH, (double)ypos * 4000.0f / WIDTH);
+	model_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
+	glReadPixels(xpos, HEIGHT - ypos, 1, 1, GL_RGBA, GL_FLOAT, &vertex_color[index]);
+	//model_2D_coord[index] = glm::vec2((double)xpos * 4000.0f / WIDTH, (double)ypos * 4000.0f / HEIGHT);
 	//vertex_coord[index] = model * view * screen_coord;
 	cout << model_2D_coord[index].x << " " << model_2D_coord[index].y << endl;
+	cout << "depth = " << vertex_color[index].r << endl;
 }
 
 void set_texture_coord(GLint xpos, GLint ypos, int index)
 {
-	//texture_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
-	texture_2D_coord[index] = glm::vec2((double)xpos * 4000.0f / WIDTH, (double)ypos * 4000.0f / WIDTH);
+	texture_2D_coord[index] = glm::vec2((double)xpos / WIDTH * 2 - 1, (HEIGHT - (double)ypos) / HEIGHT * 2 - 1);
+	//texture_2D_coord[index] = glm::vec2((double)xpos * 4000.0f / WIDTH, (double)ypos * 4000.0f / HEIGHT);
 	cout << texture_2D_coord[index].x << " " << texture_2D_coord[index].y << endl;
 }
 
@@ -392,7 +396,7 @@ void calc_homography_matrix()
 	}
 	cv::Mat m_homography = findHomography(pts_src, pts_dst); // 4x4
 	cv::Mat wMat;
-	cv::warpPerspective(image[current_camera_pos], wMat, m_homography, cv::Size(image[current_camera_pos].cols, image[current_camera_pos].rows), 
+	cv::warpPerspective(cvimage[current_camera_pos], wMat, m_homography, cv::Size(cvimage[current_camera_pos].cols, cvimage[current_camera_pos].rows),
 		cv::InterpolationFlags::INTER_NEAREST | cv::InterpolationFlags::WARP_INVERSE_MAP);
 	char nameBuf[256];
 	sprintf(nameBuf, "warped_%02d.png", current_camera_pos);
@@ -494,7 +498,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
 	{
 		cout << "[Info] Calculating texCoord..." << endl;
-		double avg_depth = vertex_coord[0].z + vertex_coord[1].z + vertex_coord[2].z + vertex_coord[3].z;
+		double avg_depth = vertex_color[0].z + vertex_color[1].z + vertex_color[2].z + vertex_color[3].z;
 		avg_depth *= 0.25;
 
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000.0f);
@@ -504,7 +508,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 		calc_homography_matrix();
 		print_view_matrix();
-		pModel->updateNode(avg_depth, projection * view * model, homography_matrix, current_camera_pos);
+		pModel->updateNode(avg_depth, glm::mat4(glm::mat3(view)) * model, projection * view * model, homography_matrix, current_camera_pos);
 		cout << "[Info] Calculating finished." << endl;
 	}
 }
@@ -558,7 +562,7 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 			if (depth == 0)
 			{
 				cout << "[Error] " << "Infinite depth!" << endl;
-				//return;
+				return;
 			}
 			//std::cout << xpos << " " << ypos << " " << depth << std::endl;
 			

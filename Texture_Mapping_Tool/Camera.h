@@ -26,7 +26,7 @@ const GLfloat PITCH = 0.0f;
 const GLfloat SPEED = 3.0f;
 const GLfloat SENSITIVTY = 0.25f;
 const GLfloat ZOOM = 5.4049f; // degree
-const GLfloat FARAWAY = 25000.0f; // 3.0f as default
+const GLfloat FARAWAY = 1000.0f; // 3.0f as default
 
 // An abstract camera class that processes input and calculates the corresponding Eular Angles, Vectors and Matrices for use in OpenGL
 class Camera

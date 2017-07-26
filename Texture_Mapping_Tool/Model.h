@@ -27,6 +27,7 @@ GLint TextureFromFile(const char* path, string directory);
 class Model
 {
 public:
+	aiScene* out_scene;
 	/*  Functions   */
 	// Constructor, expects a filepath to a 3D model.
 	Model(GLchar* path)
@@ -57,7 +58,6 @@ public:
 		this->updateNode(this->out_scene->mRootNode, depth, m_VM, m_PVM, m_homography, index);
 	}
 
-
 	void updateNode(aiNode* node, double depth, glm::mat4 &m_VM, glm::mat4 &m_PVM, glm::mat3 &m_homography, int index)
 	{
 		// Release former-allocated resources
@@ -68,7 +68,7 @@ public:
 		index = 0;
 		aiMaterial* mat = new aiMaterial;
 		out_scene->mMaterials[index] = mat;
-
+		
 		// Set the name of the material:
 		string materialName = "diffuseTexture" + std::to_string(index);
 		mat->AddProperty(&aiString(materialName.c_str()), AI_MATKEY_NAME);
@@ -154,9 +154,186 @@ public:
 	}
 
 	GLfloat getMaxBoundingValue(GLint index) {
-		if (index < 0 || index > 6)
+		if (index < 0 || index > 5)
 			return 0.0f;
 		return this->max_bounding_value[index];
+	}
+
+	/* Always split vertices from the first mesh's first child */
+	void splitVertex(glm::mat4 &m_VM, glm::mat4 &m_PVM, GLfloat* depth_image, GLuint width, GLuint height, GLint camera_index) {
+		aiScene* scene = this->out_scene;
+		unsigned int num_meshes = scene->mNumMeshes;
+		aiMesh** old_mMeshes = scene->mMeshes;
+		aiMesh** new_mMeshes = new aiMesh*[num_meshes + 1];
+		
+		for (int i = 0; i < num_meshes; ++i)
+			new_mMeshes[i] = old_mMeshes[i];
+		delete old_mMeshes;
+		scene->mMeshes = new_mMeshes;
+		scene->mNumMeshes++;
+		new_mMeshes[num_meshes] = new aiMesh;
+
+		
+		aiNode* node = this->out_scene->mRootNode->mChildren[0];
+		int num_meshes_index = node->mNumMeshes;
+		unsigned int * old_mMeshes_index = node->mMeshes;
+		unsigned int * new_mMeshes_index = new unsigned int[num_meshes_index + 1];
+		
+		for (int i = 0; i < num_meshes_index; ++i)
+			new_mMeshes_index[i] = old_mMeshes_index[i];
+		delete old_mMeshes_index;
+		node->mMeshes = new_mMeshes_index;
+		node->mNumMeshes++;
+		new_mMeshes_index[num_meshes_index] = num_meshes; // original 0 will be ignored in next ignore..(), so it starts from 0 ???
+		
+		aiMesh* source_mesh = scene->mMeshes[0];
+		aiMesh* target_mesh = scene->mMeshes[num_meshes];
+		vector<bool> vertex_list;
+		vector<aiVector3D> valid_vertex;
+		vector<aiFace> valid_face;
+		for (int i = 0; i < source_mesh->mNumVertices; i++)
+		{
+			// Set a reference to simlify the following code
+			const aiVector3D &coord_ = source_mesh->mVertices[i];
+			glm::vec3 coord = glm::vec3(coord_.x, coord_.y, coord_.z);
+
+			// Generate depth value of this vertex in current camera set and store it in finalcolor
+			glm::vec4 transformed_model = m_VM * glm::vec4(coord, 1.0f);
+			GLfloat final_color = transformed_model.z / this->getMaxBoundingValue(camera_index) / 5 * 4 + 0.2;
+
+			// Convert 3D vertex coordinate to model view coordinate, P * V * M * Vertex
+			glm::vec4 new_coord = m_PVM * glm::vec4(coord, 1.0f);
+
+			// Normalization
+			new_coord.x /= new_coord.w;
+			new_coord.y /= new_coord.w;
+
+			new_coord.x = (new_coord.x + 1.0f) / 2.0f;
+			new_coord.y = (new_coord.y + 1.0f) / 2.0f;
+
+			// Get depth value of the corresponding pixel
+			GLint index = (GLuint)(new_coord.x * width) + (GLuint)(new_coord.y * height) * width;
+			if (index < 0 || index >= height*width)
+			{
+				vertex_list.push_back(false);
+				continue;
+			}
+			GLfloat actual_depth = depth_image[index];
+
+			// set this vertex to false if this vertex is behind current view (should be culled)
+			//cout << final_color << "   " << actual_depth << endl;
+			if (fabs(final_color - actual_depth) > 5e-2)
+				vertex_list.push_back(false);
+			else
+			{
+				vertex_list.push_back(true);
+				valid_vertex.push_back(source_mesh->mVertices[i]);
+			}
+		}
+
+		// Copy valid vertices to target mesh
+		target_mesh->mVertices = new aiVector3D[valid_vertex.size()];
+		target_mesh->mNumVertices = valid_vertex.size();
+		for (int i = 0; i < valid_vertex.size(); ++i)
+			target_mesh->mVertices[i] = valid_vertex[i];
+		
+		for (int i = 0; i < source_mesh->mNumFaces; ++i)
+		{
+			const aiFace &face = source_mesh->mFaces[i];
+			bool is_all_true = true;
+			for (int j = 0; j < face.mNumIndices; ++j)
+				is_all_true = is_all_true && vertex_list[face.mIndices[j]];
+			if (is_all_true)
+				valid_face.push_back(face);
+		}
+		
+		// Copy valid faces to target mesh
+		target_mesh->mFaces = new aiFace[valid_face.size()];
+		target_mesh->mNumFaces = valid_face.size();
+		for (int i = 0; i < valid_face.size(); ++i)
+			target_mesh->mFaces[i] = valid_face[i];
+
+		target_mesh->mName = aiString(string("Mesh0") + to_string(camera_index));
+		cout << "[" << camera_index << "]" << valid_vertex.size() << "/" << source_mesh->mNumVertices << " " << valid_face.size() << "/" << source_mesh->mNumFaces << endl;
+	}
+
+	void ignoreFirstMeshInRootNode()
+	{
+		aiNode* node = this->out_scene->mRootNode->mChildren[0];
+		int num_meshes_index = node->mNumMeshes;
+		unsigned int * old_mMeshes_index = node->mMeshes;
+		unsigned int * new_mMeshes_index = new unsigned int[num_meshes_index - 1];
+
+		memcpy_s(new_mMeshes_index, num_meshes_index - 1, old_mMeshes_index + 1, num_meshes_index - 1);
+
+		delete old_mMeshes_index;
+		node->mMeshes = new_mMeshes_index;
+		node->mNumMeshes--;
+	}
+
+	void genTextureCoord(glm::mat4 &m_PVM, glm::mat3 &m_homography, GLuint camera_index)
+	{
+		// For Arbitary number of materials
+		//aiScene* scene = this->out_scene;
+		//unsigned int num_materials = scene->mNumMaterials;
+		//aiMaterial** old_mMaterials = scene->mMaterials;
+		//aiMaterial** new_mMaterials = new aiMaterial*[num_materials + 1];
+
+		//for (int i = 0; i < num_materials; ++i)
+		//	new_mMaterials[i] = old_mMaterials[i];
+		//delete old_mMaterials;
+		//scene->mMaterials = new_mMaterials;
+		//scene->mNumMaterials++;
+		//new_mMaterials[num_materials] = new aiMaterial;
+
+		// Release former-allocated resources
+		if (out_scene->mMaterials[camera_index])
+			delete out_scene->mMaterials[camera_index];
+
+		// Allocate memory for material
+		aiMaterial* mat = new aiMaterial;
+		out_scene->mMaterials[camera_index] = mat;
+
+		// Set the name of the material:
+		string materialName = "diffuseTexture" + std::to_string(camera_index);
+		mat->AddProperty(&aiString(materialName.c_str()), AI_MATKEY_NAME);
+
+		// Set the first diffuse texture
+		string textureName = "diffuseTexture" + std::to_string(camera_index) + ".jpg";
+		mat->AddProperty(&aiString(textureName.c_str()), AI_MATKEY_TEXTURE(aiTextureType_DIFFUSE, 0));
+
+		// Bind mesh
+		aiMesh* mesh = this->out_scene->mMeshes[camera_index];
+
+		// Assign material index
+		mesh->mMaterialIndex = camera_index;
+		mesh->mNumUVComponents[0] = 2;
+
+		// Allocate memory for TexCoords
+		aiVector3D* TexCoords = new aiVector3D[mesh->mNumVertices];
+		mesh->mTextureCoords[0] = TexCoords;
+
+		// Walk through each of the mesh's vertices
+		for (GLuint i = 0; i < mesh->mNumVertices; ++i)
+		{
+			// Set a reference to simlify the following code
+			const aiVector3D &coord_ = mesh->mVertices[i];
+			glm::vec3 coord = glm::vec3(coord_.x, coord_.y, coord_.z);
+
+			// Convert 3D vertex coordinate to model view coordinate, P * V * M * Vertex
+			glm::vec4 new_coord = m_PVM * glm::vec4(coord, 1.0f);
+
+			// Normalization
+			new_coord.x /= new_coord.w;
+			new_coord.y /= new_coord.w;
+			new_coord.z /= new_coord.w;
+
+			// Calculate texture coordinate using homography matrix
+			glm::vec3 screen_coord = glm::vec3(new_coord.x, new_coord.y, 1.0f); // 3*1
+			glm::vec3 texture_coord = m_homography * screen_coord; // 3*3 * 3*1
+			mesh->mTextureCoords[0][i].x = (1 + texture_coord.x / texture_coord.z) / 2.0f;
+			mesh->mTextureCoords[0][i].y = (1 + texture_coord.y / texture_coord.z) / 2.0f;
+		}
 	}
 
 private:
@@ -165,14 +342,14 @@ private:
 	string directory;
 	vector<Texture> textures_loaded;	// Stores all the textures loaded so far, optimization to make sure textures aren't loaded more than once.
 	const aiScene* scene; // ZZA Modified
-	aiScene* out_scene;
 	GLfloat max_bounding_value[6]; // ZZA Modified
 
 	/*  Functions   */
 	// Loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
 	void loadModel(string path)
 	{
-		max_bounding_value[6] = { 0 };
+		for (int i = 0; i < 6; i++)
+			max_bounding_value[i] = 0.0f;
 		// Read file via ASSIMP
 		Assimp::Importer importer;
 		this->scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);

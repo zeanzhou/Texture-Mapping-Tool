@@ -45,6 +45,7 @@ void Do_Movement();
 // Self-defined Function Prototype
 void set_model_coord(GLint xpos, GLint ypos, double depth, int index);
 void set_texture_coord(GLint xpos, GLint ypos, int index);
+void draw_model();
 
 // Coordination
 glm::vec4 vertex_color[4];
@@ -66,6 +67,7 @@ GLfloat lastFrame = 0.0f;
 
 // Global pointer
 Model* pModel = NULL;
+Shader* pShader = NULL;
 
 // Load OpenCV Image
 cv::Mat cvimage[6];
@@ -73,6 +75,8 @@ cv::Mat cvimage[6];
 // Window
 GLFWwindow* objwindow;
 GLFWwindow* texwindow;
+
+
 
 // The MAIN function, from here we start our application and run our Game loop
 int main()
@@ -116,9 +120,55 @@ int main()
 	Shader shader("obj.vs", "obj.frag");
 
 	// Load models
-	Model ourModel("red_bottle.obj");//trophybox3.obj
+	Model ourModel("gym.obj");//trophybox3.obj
+
 	//Model ourModel("bottle/body2.obj"); //nanosuit/nanosuit.obj
 	pModel = &ourModel;
+	pShader = &shader;
+
+	//GLfloat* buffer = new GLfloat[WIDTH];
+	//cout << pModel->out_scene->mRootNode->mChildren[0]->mNumMeshes<< endl;
+	//for (int i = 0; i < 2; ++i)
+	//{
+	//	// Iterate on 6 different view
+	//	camera.ViewSwitch(i);
+	//	current_camera_pos = i;
+
+	//	glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000000.0f);
+	//	glm::mat4 view = camera.GetViewMatrix();
+	//	glm::mat4 model;
+	//	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+	//	model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+	//	
+	//	// Pre-render the image to get actual depth image
+	//	draw_model();
+	//	draw_model();
+	//	
+	//	GLfloat* depth_image = new GLfloat[WIDTH * HEIGHT];
+	//	glReadPixels(0, 0, WIDTH, HEIGHT, GL_RED, GL_FLOAT, depth_image);
+	//	int size = WIDTH * sizeof(GLfloat);
+	//	
+	//	// Flip the image vertically
+	//	for (int j = 0; j < HEIGHT / 2; j++)
+	//	{
+	//		memcpy_s(buffer, size, &depth_image[j * WIDTH], size);
+	//		memcpy_s(&depth_image[j * WIDTH], size, &depth_image[(HEIGHT - j - 1) * WIDTH], size);
+	//		memcpy_s(&depth_image[(HEIGHT - j - 1) * WIDTH], size, buffer, size);
+	//	}
+	//	//ofstream pfile("depthcheck.txt");
+	//	//for (int n = 0; n < HEIGHT*WIDTH; n++)
+	//	//	pfile << depth_image[n] << " ";
+	//	//pfile.close();
+
+	//	pModel->splitVertex(glm::mat4(glm::mat3(view)) * model, projection * view * model, depth_image, WIDTH, HEIGHT, current_camera_pos);
+	//	//string filename = string("test0") + to_string(i) + ".bmp";
+	//	//SOIL_save_image(filename.c_str(), SOIL_SAVE_TYPE_BMP, WIDTH, HEIGHT, 3, depth_image);
+
+	//	delete depth_image;
+	//}
+	//delete buffer;
+	//pModel->ignoreFirstMeshInRootNode();
+
 
 	// Draw in wireframe
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -223,29 +273,12 @@ int main()
 		glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done, so we won't accidentily mess up our texture.
 	}
 
-	//// ===================
-	//// Texture 2
-	//// ===================
-	//glGenTextures(1, &texture2);
-	//glBindTexture(GL_TEXTURE_2D, texture2);
-	//// Set our texture parameters
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	//// Set texture filtering
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	//// Load, create texture and generate mipmaps
-	//image = SOIL_load_image("awesomeface.png", &width, &height, 0, SOIL_LOAD_RGB);
-	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-	//glGenerateMipmap(GL_TEXTURE_2D);
-	//SOIL_free_image_data(image);
-	//glBindTexture(GL_TEXTURE_2D, 0);
-
 
 	/*===================Create Texture Window=====================*/
 	/*=============================================================*/
 
 	// Camera Init
+	current_camera_pos = 0;
 	camera.ViewSwitch(0);
 
 	// Game loop
@@ -261,36 +294,7 @@ int main()
 		glfwPollEvents();
 		Do_Movement();
 
-		// Clear the colorbuffer
-		//glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
-		glClearColor(0.0f, 0.0f, 0.1f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		shader.Use();   // <-- Don't forget this one!
-						// Transformation matrices
-		
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000.0f);
-		//glm::mat4 projection = glm::ortho(-5, 5, -5, 5);
-		glm::mat4 view = camera.GetViewMatrix();
-		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-
-		// ZZA Added
-		// Camera Distance
-		GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
-		glUniform1f(glGetUniformLocation(shader.Program, "camera_dist"), camera_dist);
-		glUniform1f(glGetUniformLocation(shader.Program, "max_bounding_value"), ourModel.getMaxBoundingValue(current_camera_pos));
-		//std:cout << ourModel.getMaxBoundingValue(current_camera_pos) << std::endl;
-
-		// Draw the loaded model
-		glm::mat4 model;
-		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // Translate it down a bit so it's at the center of the scene
-		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// It's a bit too big for our scene, so scale it down
-		glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-		ourModel.Draw(shader);
-
-		// Swap the buffers
-		glfwSwapBuffers(objwindow);
+		draw_model();
 
 
 
@@ -310,9 +314,6 @@ int main()
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture[current_camera_pos]);
 		glUniform1i(glGetUniformLocation(ourShader.Program, "ourTexture1"), 0);
-		//glActiveTexture(GL_TEXTURE1);
-		//glBindTexture(GL_TEXTURE_2D, texture2);
-		//glUniform1i(glGetUniformLocation(ourShader.Program, "ourTexture2"), 1);
 
 		// Draw container
 		glBindVertexArray(VAO);
@@ -501,7 +502,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		double avg_depth = vertex_color[0].z + vertex_color[1].z + vertex_color[2].z + vertex_color[3].z;
 		avg_depth *= 0.25;
 
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000.0f);
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000000.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 		glm::mat4 model;
 		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
@@ -509,6 +510,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		calc_homography_matrix();
 		print_view_matrix();
 		pModel->updateNode(avg_depth, glm::mat4(glm::mat3(view)) * model, projection * view * model, homography_matrix, current_camera_pos);
+		cout << "[Info] Calculating finished." << endl;
+	}
+	if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+	{
+		cout << "[Info] Calculating texCoord... NEW!" << endl;
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000000.0f);
+		glm::mat4 view = camera.GetViewMatrix();
+		glm::mat4 model;
+		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+		calc_homography_matrix();
+		pModel->genTextureCoord(projection * view * model, homography_matrix, current_camera_pos);
 		cout << "[Info] Calculating finished." << endl;
 	}
 }
@@ -601,6 +614,40 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	camera.ProcessMouseScroll(yoffset);
+}
+
+void draw_model()
+{
+	// Clear the colorbuffer
+	//glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	pShader->Use();   // <-- Don't forget this one!
+					// Transformation matrices
+
+	glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000.0f);
+	//glm::mat4 projection = glm::ortho(-5, 5, -5, 5);
+	glm::mat4 view = camera.GetViewMatrix();
+	glUniformMatrix4fv(glGetUniformLocation(pShader->Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(glGetUniformLocation(pShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+
+	// ZZA Added
+	// Camera Distance
+	GLfloat camera_dist = glm::distance(camera.Position, glm::vec3(0.0f));
+	glUniform1f(glGetUniformLocation(pShader->Program, "camera_dist"), camera_dist);
+	glUniform1f(glGetUniformLocation(pShader->Program, "max_bounding_value"), pModel->getMaxBoundingValue(current_camera_pos));
+	//std:cout << ourModel.getMaxBoundingValue(current_camera_pos) << std::endl;
+
+	// Draw the loaded model
+	glm::mat4 model;
+	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // Translate it down a bit so it's at the center of the scene
+	model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// It's a bit too big for our scene, so scale it down
+	glUniformMatrix4fv(glGetUniformLocation(pShader->Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+	pModel->Draw(*pShader);
+
+	// Swap the buffers
+	glfwSwapBuffers(objwindow);
 }
 
 #pragma endregion

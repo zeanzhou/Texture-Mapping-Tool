@@ -125,49 +125,49 @@ int main()
 	//Model ourModel("bottle/body2.obj"); //nanosuit/nanosuit.obj
 	pModel = &ourModel;
 	pShader = &shader;
+	cout << "Assimp Version: " << aiGetVersionMajor() << "." << aiGetVersionMinor() << endl;
+	GLfloat* buffer = new GLfloat[WIDTH];
+	cout << pModel->out_scene->mRootNode->mChildren[0]->mNumMeshes<< endl;
+	for (int i = 0; i < 1; ++i)
+	{
+		// Iterate on 6 different view
+		camera.ViewSwitch(i);
+		current_camera_pos = i;
 
-	//GLfloat* buffer = new GLfloat[WIDTH];
-	//cout << pModel->out_scene->mRootNode->mChildren[0]->mNumMeshes<< endl;
-	//for (int i = 0; i < 2; ++i)
-	//{
-	//	// Iterate on 6 different view
-	//	camera.ViewSwitch(i);
-	//	current_camera_pos = i;
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000000.0f);
+		glm::mat4 view = camera.GetViewMatrix();
+		glm::mat4 model;
+		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+		
+		// Pre-render the image to get actual depth image
+		draw_model();
+		draw_model();
+		
+		GLfloat* depth_image = new GLfloat[WIDTH * HEIGHT];
+		glReadPixels(0, 0, WIDTH, HEIGHT, GL_RED, GL_FLOAT, depth_image);
+		int size = WIDTH * sizeof(GLfloat);
+		
+		// Flip the image vertically
+		for (int j = 0; j < HEIGHT / 2; j++)
+		{
+			memcpy_s(buffer, size, &depth_image[j * WIDTH], size);
+			memcpy_s(&depth_image[j * WIDTH], size, &depth_image[(HEIGHT - j - 1) * WIDTH], size);
+			memcpy_s(&depth_image[(HEIGHT - j - 1) * WIDTH], size, buffer, size);
+		}
+		//ofstream pfile("depthcheck.txt");
+		//for (int n = 0; n < HEIGHT*WIDTH; n++)
+		//	pfile << depth_image[n] << " ";
+		//pfile.close();
 
-	//	glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000000.0f);
-	//	glm::mat4 view = camera.GetViewMatrix();
-	//	glm::mat4 model;
-	//	model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-	//	model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-	//	
-	//	// Pre-render the image to get actual depth image
-	//	draw_model();
-	//	draw_model();
-	//	
-	//	GLfloat* depth_image = new GLfloat[WIDTH * HEIGHT];
-	//	glReadPixels(0, 0, WIDTH, HEIGHT, GL_RED, GL_FLOAT, depth_image);
-	//	int size = WIDTH * sizeof(GLfloat);
-	//	
-	//	// Flip the image vertically
-	//	for (int j = 0; j < HEIGHT / 2; j++)
-	//	{
-	//		memcpy_s(buffer, size, &depth_image[j * WIDTH], size);
-	//		memcpy_s(&depth_image[j * WIDTH], size, &depth_image[(HEIGHT - j - 1) * WIDTH], size);
-	//		memcpy_s(&depth_image[(HEIGHT - j - 1) * WIDTH], size, buffer, size);
-	//	}
-	//	//ofstream pfile("depthcheck.txt");
-	//	//for (int n = 0; n < HEIGHT*WIDTH; n++)
-	//	//	pfile << depth_image[n] << " ";
-	//	//pfile.close();
+		pModel->splitVertex(glm::mat4(glm::mat3(view)) * model, projection * view * model, depth_image, WIDTH, HEIGHT, current_camera_pos);
+		//string filename = string("test0") + to_string(i) + ".bmp";
+		//SOIL_save_image(filename.c_str(), SOIL_SAVE_TYPE_BMP, WIDTH, HEIGHT, 3, depth_image);
 
-	//	pModel->splitVertex(glm::mat4(glm::mat3(view)) * model, projection * view * model, depth_image, WIDTH, HEIGHT, current_camera_pos);
-	//	//string filename = string("test0") + to_string(i) + ".bmp";
-	//	//SOIL_save_image(filename.c_str(), SOIL_SAVE_TYPE_BMP, WIDTH, HEIGHT, 3, depth_image);
-
-	//	delete depth_image;
-	//}
-	//delete buffer;
-	//pModel->ignoreFirstMeshInRootNode();
+		delete[] depth_image;
+	}
+	delete[] buffer;
+	pModel->ignoreFirstMeshInRootNode();
 
 
 	// Draw in wireframe

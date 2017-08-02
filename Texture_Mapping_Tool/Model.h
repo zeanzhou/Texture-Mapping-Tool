@@ -16,6 +16,7 @@ using namespace std;
 #include <assimp/Exporter.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/version.h>
 
 #include "Mesh.h"
 
@@ -161,14 +162,15 @@ public:
 
 	/* Always split vertices from the first mesh's first child */
 	void splitVertex(glm::mat4 &m_VM, glm::mat4 &m_PVM, GLfloat* depth_image, GLuint width, GLuint height, GLint camera_index) {
+
 		aiScene* scene = this->out_scene;
 		unsigned int num_meshes = scene->mNumMeshes;
 		aiMesh** old_mMeshes = scene->mMeshes;
 		aiMesh** new_mMeshes = new aiMesh*[num_meshes + 1];
-		
+
 		for (int i = 0; i < num_meshes; ++i)
 			new_mMeshes[i] = old_mMeshes[i];
-		delete old_mMeshes;
+		delete[] old_mMeshes;
 		scene->mMeshes = new_mMeshes;
 		scene->mNumMeshes++;
 		new_mMeshes[num_meshes] = new aiMesh;
@@ -178,19 +180,30 @@ public:
 		int num_meshes_index = node->mNumMeshes;
 		unsigned int * old_mMeshes_index = node->mMeshes;
 		unsigned int * new_mMeshes_index = new unsigned int[num_meshes_index + 1];
-		
+
 		for (int i = 0; i < num_meshes_index; ++i)
 			new_mMeshes_index[i] = old_mMeshes_index[i];
-		delete old_mMeshes_index;
+		delete[] old_mMeshes_index;
 		node->mMeshes = new_mMeshes_index;
 		node->mNumMeshes++;
 		new_mMeshes_index[num_meshes_index] = num_meshes; // original 0 will be ignored in next ignore..(), so it starts from 0 ???
 		
+		
 		aiMesh* source_mesh = scene->mMeshes[0];
 		aiMesh* target_mesh = scene->mMeshes[num_meshes];
+		target_mesh->mPrimitiveTypes = 4;
+		target_mesh->mMethod = source_mesh->mMethod;
+
+
 		vector<bool> vertex_list;
-		vector<aiVector3D> valid_vertex;
-		vector<aiFace> valid_face;
+		vector<GLuint> valid_vertex_index;
+		vector<GLuint> valid_face_index;
+		vector<GLuint> new_vertex_index;
+		cout << vertex_list.size() << endl;
+		cout << valid_vertex_index.size() << endl;
+		cout << valid_face_index.size() << endl;
+		cout << new_vertex_index.size() << endl;
+
 		for (int i = 0; i < source_mesh->mNumVertices; i++)
 		{
 			// Set a reference to simlify the following code
@@ -227,16 +240,22 @@ public:
 			else
 			{
 				vertex_list.push_back(true);
-				valid_vertex.push_back(source_mesh->mVertices[i]);
+				valid_vertex_index.push_back(i);
 			}
 		}
 
 		// Copy valid vertices to target mesh
-		target_mesh->mVertices = new aiVector3D[valid_vertex.size()];
-		target_mesh->mNumVertices = valid_vertex.size();
-		for (int i = 0; i < valid_vertex.size(); ++i)
-			target_mesh->mVertices[i] = valid_vertex[i];
-		
+		target_mesh->mVertices = new aiVector3D[valid_vertex_index.size()];
+		target_mesh->mNumVertices = valid_vertex_index.size();
+		for (int i = 0; i < valid_vertex_index.size(); ++i)
+		{
+			const aiVector3D& vec = source_mesh->mVertices[valid_vertex_index[i]];
+			target_mesh->mVertices[i] = aiVector3D(vec.x, vec.y, vec.z); //TODO: ?
+		}
+
+		//for (int i = 0; i < valid_vertex_index.size(); i++)
+			//cout << target_mesh->mVertices[i].x << " " << target_mesh->mVertices[i].y << " " << target_mesh->mVertices[i].z << endl;
+
 		for (int i = 0; i < source_mesh->mNumFaces; ++i)
 		{
 			const aiFace &face = source_mesh->mFaces[i];
@@ -244,17 +263,46 @@ public:
 			for (int j = 0; j < face.mNumIndices; ++j)
 				is_all_true = is_all_true && vertex_list[face.mIndices[j]];
 			if (is_all_true)
-				valid_face.push_back(face);
+				valid_face_index.push_back(i);
 		}
-		
+		//for (int i = 0; i < valid_face_index.size(); i++)
+			//cout << valid_face_index[i] << endl;
+		// Recalculate vertex index in faces ERROR? source_mesh wrong
+		int temp_i = 0;
+		while (!vertex_list[temp_i])
+		{
+			temp_i++;
+			new_vertex_index.push_back(0); //FFF -1
+		}
+		new_vertex_index.push_back(0);
+		for (int i = temp_i + 1; i < vertex_list.size(); ++i)
+		{
+			if (vertex_list[i])
+				new_vertex_index.push_back(new_vertex_index[i - 1] + 1);
+			else
+				new_vertex_index.push_back(new_vertex_index[i - 1]);
+		}
+		//for (int i = 0; i < new_vertex_index.size(); i++)
+		//	cout << "[" << i << "]  " << new_vertex_index[i] << endl;
 		// Copy valid faces to target mesh
-		target_mesh->mFaces = new aiFace[valid_face.size()];
-		target_mesh->mNumFaces = valid_face.size();
-		for (int i = 0; i < valid_face.size(); ++i)
-			target_mesh->mFaces[i] = valid_face[i];
+		target_mesh->mFaces = new aiFace[valid_face_index.size()];
+		target_mesh->mNumFaces = valid_face_index.size();
+		for (int i = 0; i < valid_face_index.size(); ++i)
+		{
+			const aiFace &face = source_mesh->mFaces[valid_face_index[i]];
+			target_mesh->mFaces[i].mNumIndices = face.mNumIndices;
+			target_mesh->mFaces[i].mIndices = new unsigned int[face.mNumIndices];
+			for (int j = 0; j < face.mNumIndices; ++j)
+			{
+				target_mesh->mFaces[i].mIndices[j] = new_vertex_index[face.mIndices[j]]; // TODO: error low possibilities printout!!
+			}
+			//cout << i << " num=" << face.mNumIndices << endl;
+			//for (int j = 0; j < face.mNumIndices; ++j)
+				//cout << "  " << target_mesh->mFaces[i].mIndices[j] << endl;
+		}
 
 		target_mesh->mName = aiString(string("Mesh0") + to_string(camera_index));
-		cout << "[" << camera_index << "]" << valid_vertex.size() << "/" << source_mesh->mNumVertices << " " << valid_face.size() << "/" << source_mesh->mNumFaces << endl;
+		cout << "[" << camera_index << "]" << valid_vertex_index.size() << "/" << source_mesh->mNumVertices << " " << valid_face_index.size() << "/" << source_mesh->mNumFaces << endl;
 	}
 
 	void ignoreFirstMeshInRootNode()
@@ -263,12 +311,34 @@ public:
 		int num_meshes_index = node->mNumMeshes;
 		unsigned int * old_mMeshes_index = node->mMeshes;
 		unsigned int * new_mMeshes_index = new unsigned int[num_meshes_index - 1];
+		
+		int size = (num_meshes_index - 1) * sizeof(unsigned int);
+		memcpy_s(new_mMeshes_index, size, &old_mMeshes_index[1], size);
 
-		memcpy_s(new_mMeshes_index, num_meshes_index - 1, old_mMeshes_index + 1, num_meshes_index - 1);
-
-		delete old_mMeshes_index;
+		delete[] old_mMeshes_index;
 		node->mMeshes = new_mMeshes_index;
 		node->mNumMeshes--;
+
+
+		aiScene* scene = this->out_scene;
+		//int num_meshes = scene->mNumMeshes;
+		//aiMesh ** old_mMeshes = scene->mMeshes;
+		//aiMesh ** new_mMeshes = new aiMesh*[num_meshes - 1];
+
+		//size = (num_meshes - 1) * sizeof(aiMesh*);
+		//memcpy_s(new_mMeshes, size, &old_mMeshes[1], size);
+
+		//delete old_mMeshes[0];
+		//delete[] old_mMeshes;
+		//scene->mMeshes = new_mMeshes;
+		//scene->mNumMeshes--;
+
+		//for (int i = 0; i < node->mNumMeshes; i++)
+		//	node->mMeshes[i]--;
+
+		//TODO:
+		scene->mMaterials = nullptr;
+		scene->mNumMaterials = 0;
 	}
 
 	void genTextureCoord(glm::mat4 &m_PVM, glm::mat3 &m_homography, GLuint camera_index)

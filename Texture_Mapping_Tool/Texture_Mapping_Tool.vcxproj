@@ -74,9 +74,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Program Files\Graphics\glfw\glfw-3.1.2.bin.WIN64\include;C:\Program Files\Graphics\glew-1.13.0\include;$(IncludePath)</IncludePath>
-    <ReferencePath>$(ReferencePath)</ReferencePath>
-    <LibraryPath>C:\Program Files\Graphics\glfw\glfw-3.1.2.bin.WIN64\lib-vc2015;C:\Program Files\Graphics\glew-1.13.0\lib\Release\x64;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Program Files\Graphics\SOIL\src;C:\Program Files\Graphics\glfw\glfw-3.1.2.bin.WIN64\include;C:\Program Files\Graphics\glew-1.13.0\include;C:\Program Files\opencv\build\include\opencv2;C:\Program Files\opencv\build\include\opencv;C:\Program Files\opencv\build\include;$(SolutionDir)\dependencies\assimp\include\;$(IncludePath)</IncludePath>
+    <ReferencePath>$(VC_ReferencesPath_x64);</ReferencePath>
+    <LibraryPath>C:\Program Files\Graphics\glfw\glfw-3.1.2.bin.WIN64\lib-vc2015;C:\Program Files\Graphics\glew-1.13.0\lib\Debug\x64;C:\Program Files\Graphics\SOIL\projects\VC9\x64\Release;C:\Program Files\opencv\build\x64\vc14\lib;$(SolutionDir)\dependencies\assimp\lib\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -110,7 +110,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;glfw3.lib;glew32s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glfw3.lib;glew32sd.lib;SOIL.lib;opencv_world320.lib;opencv_world320d.lib;assimp-vc140-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -138,7 +138,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

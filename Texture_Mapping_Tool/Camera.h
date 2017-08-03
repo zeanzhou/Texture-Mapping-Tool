@@ -23,10 +23,10 @@ enum Camera_Movement {
 // Default camera values
 const GLfloat YAW = -90.0f;
 const GLfloat PITCH = 0.0f;
-const GLfloat SPEED = 3.0f;
-const GLfloat SENSITIVTY = 0.25f;
-const GLfloat ZOOM = 5.4049f; // degree
-const GLfloat FARAWAY = 1000.0f; // 3.0f as default
+const GLfloat SPEED = 50000.0f; // mm
+const GLfloat SENSITIVTY = 0.05f; // degree per pixel
+const GLfloat ZOOM = 45.5229f; // degree
+const GLfloat FARAWAY = 400000.0f;
 
 // An abstract camera class that processes input and calculates the corresponding Eular Angles, Vectors and Matrices for use in OpenGL
 class Camera
@@ -75,14 +75,23 @@ public:
 	void ProcessKeyboard(Camera_Movement direction, GLfloat deltaTime)
 	{
 		GLfloat velocity = this->MovementSpeed * deltaTime;
+
+		glm::vec3 ground_front = this->Front;
+		ground_front.y = 0.0f;
+		ground_front = glm::normalize(ground_front);
+
+		glm::vec3 ground_right = this->Right;
+		ground_right.y = 0.0f;
+		ground_right = glm::normalize(ground_right);
+
 		if (direction == FORWARD)
-			this->Position += this->Front * velocity;
+			this->Position += ground_front * velocity;
 		if (direction == BACKWARD)
-			this->Position -= this->Front * velocity;
+			this->Position -= ground_front * velocity;
 		if (direction == LEFT)
-			this->Position -= this->Right * velocity;
+			this->Position -= ground_right * velocity;
 		if (direction == RIGHT)
-			this->Position += this->Right * velocity;
+			this->Position += ground_right * velocity;
 		if (direction == UP)
 			this->Position += this->Up * velocity;
 		if (direction == BOTTOM)
@@ -114,14 +123,19 @@ public:
 	// Processes input received from a mouse scroll-wheel event. Only requires input on the vertical wheel-axis
 	void ProcessMouseScroll(GLfloat yoffset)
 	{
-		if (this->Zoom >= 1.0f && this->Zoom <= 85.0f)
-			this->Zoom -= yoffset;
-		if (this->Zoom <= 1.0f)
-			this->Zoom = 1.0f;
-		if (this->Zoom >= 85.0f)
-			this->Zoom = 85.0f;
+		//if (this->Zoom >= 1.0f && this->Zoom <= 85.0f)
+		//	this->Zoom -= yoffset;
+		//if (this->Zoom <= 1.0f)
+		//	this->Zoom = 1.0f;
+		//if (this->Zoom >= 85.0f)
+		//	this->Zoom = 85.0f;
+		this->Position += this->Front * (yoffset * this->MovementSpeed);
 	}
-
+	void SetPosition(glm::vec3 pos)
+	{
+		this->Position = pos;
+		this->updateCameraVectors();
+	}
 	void ViewSwitch(int pos)
 	{
 		glm::vec3 camera_pos[6] = {

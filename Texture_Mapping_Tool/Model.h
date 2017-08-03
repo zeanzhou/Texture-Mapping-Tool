@@ -348,8 +348,12 @@ private:
 	// Loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
 	void loadModel(string path)
 	{
-		for (int i = 0; i < 6; i++)
-			max_bounding_value[i] = 0.0f;
+		max_bounding_value[0] = FLT_MIN;
+		max_bounding_value[1] = FLT_MIN;
+		max_bounding_value[4] = FLT_MIN;
+		max_bounding_value[3] = FLT_MAX;
+		max_bounding_value[2] = FLT_MAX;
+		max_bounding_value[5] = FLT_MAX;
 		// Read file via ASSIMP
 		Assimp::Importer importer;
 		this->scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -364,13 +368,9 @@ private:
 		// Process ASSIMP's root node recursively
 		this->processNode(this->scene->mRootNode, this->scene);
 		// Copy a new pointer for modification (according to specification)  // ZZA Added
-		aiCopyScene(this->scene, &(this->out_scene));
-		//cout << this->out_scene->mMaterials << " " << this->out_scene->mNumMaterials << endl;
-		//cout << endl;
-		this->out_scene->mMaterials = new aiMaterial*[6];
-		for (int i = 0; i < 6; ++i)
-			this->out_scene->mMaterials[i] = new aiMaterial;
-		this->out_scene->mNumMaterials = 6;
+		//aiCopyScene(this->scene, &(this->out_scene));
+		cout << this->meshes.size() << endl;
+		
 	}
 
 	// Processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).

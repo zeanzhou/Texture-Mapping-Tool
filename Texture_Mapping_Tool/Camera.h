@@ -23,11 +23,12 @@ enum Camera_Movement {
 // Default camera values
 const GLfloat YAW = -90.0f;
 const GLfloat PITCH = 0.0f;
-const GLfloat SPEED = 50000.0f; // mm
+const GLfloat SPEED = 25000.0f; // mm
 const GLfloat SENSITIVTY = 0.05f; // degree per pixel
-const GLfloat ZOOM = 45.5229f; // degree
-const GLfloat FARAWAY = 400000.0f;
-
+const GLfloat ZOOM = 76.80095294072474; // degree
+const GLfloat FARAWAY = 4000000.0f;
+//>> > height = 2832; p = 35.8 / 4240.0; f = 15
+//>> > 2 * degrees(atan(height / 2 * p / f))
 // An abstract camera class that processes input and calculates the corresponding Eular Angles, Vectors and Matrices for use in OpenGL
 class Camera
 {

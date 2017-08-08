@@ -33,7 +33,7 @@
 // Properties
 GLuint screen_width = GetSystemMetrics(SM_CXSCREEN);
 GLuint screen_height = GetSystemMetrics(SM_CYSCREEN);
-GLuint WIDTH = 800, HEIGHT = 800;
+GLuint WIDTH = 900, HEIGHT = 800;
 
 // Function prototypes
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -62,6 +62,7 @@ int current_camera_pos = 0;
 glm::vec3 model_correction;
 glm::vec3 model_rotate;
 glm::vec3 model_translation;
+glm::vec3 model_scale = glm::vec3(1.0f);
 
 Camera camera(glm::vec3(0.0f, 0.0f, 2000000.0f)); // invalid value, will be replaced in viewSwitch..
 
@@ -94,12 +95,12 @@ int main()
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
 	HWND console = GetConsoleWindow();
-	MoveWindow(console, 0, 0, screen_width, screen_height / 3.5 + 20, true);
+	MoveWindow(console, 0, 0, screen_width, screen_height / 5.5, true);
 	/*=============================================================*/
 	/*==================Create Obj Model Window====================*/
 	objwindow = glfwCreateWindow(WIDTH, HEIGHT, "OBJ Model", nullptr, nullptr); // Windowed
 	glfwMakeContextCurrent(objwindow);
-	glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 200);
+	glfwSetWindowPos(objwindow, (0 + screen_width / 2) / 2 - WIDTH / 2, 200 + 30);
 
 	// Set the required callback functions
 	glfwSetKeyCallback(objwindow, key_callback);
@@ -129,10 +130,7 @@ int main()
 	// Model matrix generation
 	GLfloat max_bounding_value[6];
 	for (int i = 0; i < 6; i++)
-	{
 		max_bounding_value[i] = ourModel.getMaxBoundingValue(i);
-		cout << max_bounding_value[i] << endl;
-	}
 	
 	model_correction.x = -(max_bounding_value[1] + max_bounding_value[3]) / 2;
 	model_correction.y = -(max_bounding_value[4] + max_bounding_value[5]) / 2;
@@ -142,7 +140,7 @@ int main()
 	//camera.SetPosition(glm::vec3(0.0f, 2000.0f, 100000.0f));
 
 	model_translation.x = 0.0f;
-	model_translation.y = 0.0f;//-fabs(max_bounding_value[4] - max_bounding_value[5]);
+	model_translation.y = 0.0f;// -model_correction.y + 1500;//max_bounding_value[5];//-fabs(max_bounding_value[4] - max_bounding_value[5]);
 	model_translation.z = 0.0f;
 
 	pModel = &ourModel;
@@ -158,7 +156,7 @@ int main()
 	// Create a GLFWwindow object that we can use for GLFW's functions
 	texwindow = glfwCreateWindow(WIDTH, HEIGHT, "Texture", nullptr, nullptr);
 	glfwMakeContextCurrent(texwindow);
-	glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 200);
+	glfwSetWindowPos(texwindow, (screen_width / 2 + screen_width) / 2 - WIDTH / 2, 200 + 30);
 
 	// Set the required callback functions
 	glfwSetKeyCallback(texwindow, key_callback);
@@ -215,7 +213,6 @@ int main()
 	glBindVertexArray(0); // Unbind VAO
 
 	glGenTextures(1, &texture);
-
 
 	/*===================Create Texture Window=====================*/
 	/*=============================================================*/
@@ -277,7 +274,9 @@ int main()
 
 void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 {
-	model_2D_coord[index] = glm::vec2((double)xpos * 4000.0f / WIDTH, (double)ypos * 4000.0f / HEIGHT); //TODO: Magic Number??
+	int w, h;
+	glfwGetWindowSize(objwindow, &w, &h);
+	model_2D_coord[index] = glm::vec2((double)xpos * 4240.0f / w, (double)ypos * 2832.0f / h); //TODO: Magic Number?? 4240.0f 2832.0f
 	//glReadPixels(xpos, HEIGHT - ypos, 1, 1, GL_RGBA, GL_FLOAT, &vertex_color[index]);
 	cout << model_2D_coord[index].x << " " << model_2D_coord[index].y << endl;
 	//cout << "depth = " << vertex_color[index].r << endl;
@@ -287,7 +286,7 @@ void set_texture_coord(GLint xpos, GLint ypos, int index)
 {
 	int w, h;
 	glfwGetWindowSize(texwindow, &w, &h);
-	texture_2D_coord[index] = glm::vec2((double)xpos * 4000.0f / w, (double)ypos * 4000.0f / h); //TODO: Magic Number??
+	texture_2D_coord[index] = glm::vec2((double)xpos * 4240.0f / w, (double)ypos * 2832.0f / h); //TODO: Magic Number??
 	cout << texture_2D_coord[index].x << " " << texture_2D_coord[index].y << endl;
 }
 
@@ -306,12 +305,12 @@ void calc_homography_matrix()
 	cv::warpPerspective(cvimage, wMat, m_homography, cv::Size(cvimage.cols, cvimage.rows),
 		cv::InterpolationFlags::INTER_NEAREST | cv::InterpolationFlags::WARP_INVERSE_MAP);
 
-	string inputImageFileName = imageFilePath.substr(imageFilePath.find_last_of('/') + 1);
+	string inputImageFileName = imageFilePath.substr(imageFilePath.find_last_of('\\') + 1);
 	string outputImageFilename = "warpedImage_" + inputImageFileName + ".png";
 
 	cv::imwrite(outputImageFilename, wMat);
 	//cv::imshow("aaa", cvimage);
-	cv::imshow("Homography", wMat);
+	//cv::imshow("Homography", wMat);
 	cout << m_homography << endl;
 	for (int i = 0; i < 3; ++i)
 		for (int j = 0; j < 3; ++j)
@@ -325,16 +324,22 @@ void print_view_matrix()
 	model = glm::rotate(model, glm::radians(model_rotate.x), glm::vec3(1.0, 0.0, 0.0));
 	model = glm::rotate(model, glm::radians(model_rotate.y), glm::vec3(0.0, 1.0, 0.0));
 	model = glm::rotate(model, glm::radians(model_rotate.z), glm::vec3(0.0, 0.0, 1.0));
+	model = glm::scale(model, model_scale);
 	model = glm::translate(model, model_translation);
 	glm::mat4 view = camera.GetViewMatrix() * model;
-	glm::mat3 R = glm::mat3(view);
-	glm::vec3 T = glm::vec3(view[3]);
+	//glm::mat3 R = glm::mat3(view);
+	//glm::vec3 T = glm::vec3(view[3]);
 
-	glm::mat4 result = glm::transpose(R);
-	result[3] = glm::vec4(-glm::transpose(R)*T, 1.0f);
+	//glm::mat4 result = glm::transpose(R);
+	//result[3] = glm::vec4(-glm::transpose(R)*T, 1.0f);
 
-	//glm::mat4 inv = glm::inverse(view);
-	string inputImageFileName = imageFilePath.substr(imageFilePath.find_last_of('/') + 1);
+	glm::mat4 result = glm::inverse(view);
+
+	// For AGI
+	result[1] *= -1.0f;
+	result[2] *= -1.0f;
+
+	string inputImageFileName = imageFilePath.substr(imageFilePath.find_last_of('\\') + 1);
 	string outputImageFilename = "warpedImage_" + inputImageFileName + ".png";
 	string viewMatrixfileName = "viewMatrix_" + outputImageFilename + ".txt";
 
@@ -410,12 +415,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 	if (key == GLFW_KEY_INSERT && action == GLFW_PRESS)
 	{
+		HWND console = GetConsoleWindow();
+		SetFocus(console);
+		cout << "New image file path: ";
+		cin >> imageFilePath;
 		int width, height;
-		imageFilePath = "ttttt.jpg";
 		load_texture(imageFilePath, &width, &height);
-		//float ratio = (float)width / (float)height;
-		//glfwSetWindowSize(texwindow, WIDTH, WIDTH / ratio);
-		//glViewport(0, 0, WIDTH, WIDTH / ratio);
+		float ratio = (float)width / (float)height;
+		glfwSetWindowSize(texwindow, WIDTH, WIDTH / ratio);
+		glViewport(0, 0, WIDTH, WIDTH / ratio);
+		glfwSetWindowSize(objwindow, WIDTH, WIDTH / ratio);
+		glViewport(0, 0, WIDTH, WIDTH / ratio);
 	}
 	if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
 	{
@@ -441,20 +451,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	{
 		model_rotate.z -= 45;
 	}
+	if (key == GLFW_KEY_KP_ADD && action == GLFW_PRESS)
+	{
+		model_scale += glm::vec3(0.1);
+	}
+	if (key == GLFW_KEY_KP_SUBTRACT && action == GLFW_PRESS)
+	{
+		model_scale -= glm::vec3(0.1);
+	}
 	if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
 	{
 		cout << "[Info] Calculating texCoord..." << endl;
-		//double avg_depth = vertex_color[0].z + vertex_color[1].z + vertex_color[2].z + vertex_color[3].z;
-		//avg_depth *= 0.25;
-
-		//glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 1000000000.0f);
-		//glm::mat4 view = camera.GetViewMatrix();
-		//glm::mat4 model;
-		//model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-		//model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 		calc_homography_matrix();
 		print_view_matrix();
-		//pModel->updateNode(avg_depth, glm::mat4(glm::mat3(view)) * model, projection * view * model, homography_matrix, current_camera_pos);
 		cout << "[Info] Calculating finished." << endl;
 	}
 }
@@ -497,7 +506,9 @@ void mouseclick_callback(GLFWwindow* window, int button, int action, int mods) /
 		if (button == GLFW_MOUSE_BUTTON_1 && action == GLFW_PRESS)
 		{
 			GLfloat pixel[3];
-			glReadPixels((GLint)xpos, HEIGHT - (GLint)ypos, 1, 1, GL_RGB, GL_FLOAT, &pixel);
+			int w, h;
+			glfwGetWindowSize(objwindow, &w, &h);
+			glReadPixels((GLint)xpos, h - (GLint)ypos, 1, 1, GL_RGB, GL_FLOAT, &pixel);
 			
 			GLfloat depth = pixel[0];
 			if (depth == 0)
@@ -553,7 +564,9 @@ void draw_model()
 	pShader->Use();   // <-- Don't forget this one!
 					// Transformation matrices
 
-	glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 10.0f, 999999999999.0f);
+	int w, h;
+	glfwGetWindowSize(objwindow, &w, &h);
+	glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)w / (float)h, 100.0f, 999999999999.0f); //(float)WIDTH / (float)HEIGHT 4240.0f/2832.0f
 	glm::mat4 view = camera.GetViewMatrix();
 	glUniformMatrix4fv(glGetUniformLocation(pShader->Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 	glUniformMatrix4fv(glGetUniformLocation(pShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
@@ -571,8 +584,8 @@ void draw_model()
 	model = glm::rotate(model, glm::radians(model_rotate.x), glm::vec3(1.0, 0.0, 0.0));
 	model = glm::rotate(model, glm::radians(model_rotate.y), glm::vec3(0.0, 1.0, 0.0));
 	model = glm::rotate(model, glm::radians(model_rotate.z), glm::vec3(0.0, 0.0, 1.0));
+	model = glm::scale(model, model_scale);
 	model = glm::translate(model, model_translation);
-	model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// It's a bit too big for our scene, so scale it down
 	glUniformMatrix4fv(glGetUniformLocation(pShader->Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
 	pModel->Draw(*pShader);
 

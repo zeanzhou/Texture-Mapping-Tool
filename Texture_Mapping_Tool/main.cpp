@@ -1,5 +1,8 @@
+#define SWAP(a, b) _selfdefined_temp=a;a=b;b=_selfdefined_temp;
+
 // Std. Includes
 #include <string>
+#include <algorithm>
 
 // GLEW
 #define GLEW_STATIC
@@ -33,7 +36,7 @@
 // Properties
 GLuint screen_width = GetSystemMetrics(SM_CXSCREEN);
 GLuint screen_height = GetSystemMetrics(SM_CYSCREEN);
-GLuint WIDTH = 900, HEIGHT = 800;
+GLuint WIDTH = 900, HEIGHT = 900;
 
 // Function prototypes
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -125,7 +128,7 @@ int main()
 	Shader shader("obj.vs", "obj.frag");
 
 	// Load models
-	Model ourModel("test2.obj"); // nanosuit/nanosuit.obj
+	Model ourModel("J:/shanghaitech/library/library_org.obj"); // nanosuit/nanosuit.obj
 
 	// Model matrix generation
 	GLfloat max_bounding_value[6];
@@ -136,7 +139,7 @@ int main()
 	model_correction.y = -(max_bounding_value[4] + max_bounding_value[5]) / 2;
 	model_correction.z = -(max_bounding_value[0] + max_bounding_value[2]) / 2;
 	cout << model_correction.x << " " << model_correction.y << " " << model_correction.z << endl;
-	camera.SetPosition(glm::vec3(0.0f, 0.0f, 20.0f));//-model_translation.z + max_bounding_value[2]));
+	camera.SetPosition(glm::vec3(0.0f, 0.0f, 100000.0f));//-model_translation.z + max_bounding_value[2]));
 	//camera.SetPosition(glm::vec3(0.0f, 2000.0f, 100000.0f));
 
 	model_translation.x = 0.0f;
@@ -276,33 +279,99 @@ void set_model_coord(GLint xpos, GLint ypos, double depth, int index)
 {
 	int w, h;
 	glfwGetWindowSize(objwindow, &w, &h);
-	model_2D_coord[index] = glm::vec2((double)xpos * 4240.0f / w, (double)ypos * 2832.0f / h); //TODO: Magic Number?? 4240.0f 2832.0f
-	//glReadPixels(xpos, HEIGHT - ypos, 1, 1, GL_RGBA, GL_FLOAT, &vertex_color[index]);
+	float image_w = cvimage.cols;
+	float image_h = cvimage.rows;
+
+	model_2D_coord[index] = glm::vec2((double)xpos * image_w / w, (double)ypos * image_w / w); //TODO: Magic Number?? NO!! I DON'T KNOW WHT! IT JUST WORKS!!!
 	cout << model_2D_coord[index].x << " " << model_2D_coord[index].y << endl;
-	//cout << "depth = " << vertex_color[index].r << endl;
 }
 
 void set_texture_coord(GLint xpos, GLint ypos, int index)
 {
 	int w, h;
 	glfwGetWindowSize(texwindow, &w, &h);
-	texture_2D_coord[index] = glm::vec2((double)xpos * 4240.0f / w, (double)ypos * 2832.0f / h); //TODO: Magic Number??
+	float image_w = cvimage.cols;
+	float image_h = cvimage.rows;
+
+	texture_2D_coord[index] = glm::vec2((double)xpos * image_w / w, (double)ypos * image_w / w); //TODO: Magic Number??
 	cout << texture_2D_coord[index].x << " " << texture_2D_coord[index].y << endl;
 }
 
 //  Texture_2D ~ H * model_2D <- input
-void calc_homography_matrix()
+void calc_homography_matrix(bool isCut = false)
 {
 	vector<cv::Point2f> pts_src;
 	vector<cv::Point2f> pts_dst;
+	vector<cv::Point2f> inner_border;
+	cv::Point border[4][4];
+	cv::Point _selfdefined_temp;
+	cv::Mat cutMat = cvimage.clone();
 	for (int i = 0; i < 4; ++i)
 	{
 		pts_src.push_back(cv::Point2f((float)model_2D_coord[i].x, (float)model_2D_coord[i].y));
 		pts_dst.push_back(cv::Point2f((float)texture_2D_coord[i].x, (float)texture_2D_coord[i].y));
+		inner_border.push_back(cv::Point((float)texture_2D_coord[i].x, (float)texture_2D_coord[i].y));// image_w = cvimage.cols; image_h = cvimage.rows
 	}
-	cv::Mat m_homography = findHomography(pts_src, pts_dst); // 4x4
+
+	auto top_func = [](cv::Point2f p1, cv::Point2f p2) {return p1.y < p2.y; }; // descending
+	auto bottom_func = [](cv::Point2f p1, cv::Point2f p2) {return p1.y > p2.y; }; // ascending
+	auto right_func = [](cv::Point2f p1, cv::Point2f p2) {return p1.x > p2.x; }; // descending
+	auto left_func = [](cv::Point2f p1, cv::Point2f p2) {return p1.x < p2.x; }; // ascending
+
+	sort(inner_border.begin(), inner_border.end(), top_func);
+	border[0][0] = cv::Point(inner_border[0].x, inner_border[0].y);
+	border[0][1] = cv::Point(inner_border[1].x, inner_border[1].y);
+	border[0][2] = cv::Point(0, 0);
+	border[0][3] = cv::Point(cvimage.cols, 0);
+	const cv::Point* b0 = border[0];
+	cv::fillConvexPoly(cutMat, b0, 4, cv::Scalar(0));
+	SWAP(border[0][1], border[0][2]);
+	cv::fillConvexPoly(cutMat, b0, 4, cv::Scalar(0));
+	SWAP(border[0][1], border[0][3]);
+	cv::fillConvexPoly(cutMat, b0, 4, cv::Scalar(0));
+
+
+	sort(inner_border.begin(), inner_border.end(), bottom_func);
+	border[1][0] = cv::Point(inner_border[0].x, inner_border[0].y);
+	border[1][1] = cv::Point(inner_border[1].x, inner_border[1].y);
+	border[1][2] = cv::Point(0, cvimage.rows);
+	border[1][3] = cv::Point(cvimage.cols, cvimage.cols);
+	const cv::Point* b1 = border[1];
+	cv::fillConvexPoly(cutMat, b1, 4, cv::Scalar(0));
+	SWAP(border[1][1], border[1][2]);
+	cv::fillConvexPoly(cutMat, b1, 4, cv::Scalar(0));
+	SWAP(border[1][1], border[1][3]);
+	cv::fillConvexPoly(cutMat, b1, 4, cv::Scalar(0));
+
+	sort(inner_border.begin(), inner_border.end(), right_func);
+	border[2][0] = cv::Point(inner_border[0].x, inner_border[0].y);
+	border[2][1] = cv::Point(inner_border[1].x, inner_border[1].y);
+	border[2][2] = cv::Point(cvimage.cols, 0);
+	border[2][3] = cv::Point(cvimage.cols, cvimage.cols);
+	const cv::Point* b2 = border[2];
+	cv::fillConvexPoly(cutMat, b2, 4, cv::Scalar(0));
+	SWAP(border[2][1], border[2][2]);
+	cv::fillConvexPoly(cutMat, b2, 4, cv::Scalar(0));
+	SWAP(border[2][1], border[2][3]);
+	cv::fillConvexPoly(cutMat, b2, 4, cv::Scalar(0));
+
+	sort(inner_border.begin(), inner_border.end(), left_func);
+	border[3][0] = cv::Point(inner_border[0].x, inner_border[0].y);
+	border[3][1] = cv::Point(inner_border[1].x, inner_border[1].y);
+	border[3][2] = cv::Point(0, 0);
+	border[3][3] = cv::Point(0, cvimage.cols);
+	const cv::Point* b3 = border[3];
+	cv::fillConvexPoly(cutMat, b3, 4, cv::Scalar(0));
+	SWAP(border[3][1], border[3][2]);
+	cv::fillConvexPoly(cutMat, b3, 4, cv::Scalar(0));
+	SWAP(border[3][1], border[3][3]);
+	cv::fillConvexPoly(cutMat, b3, 4, cv::Scalar(0));
+
+	//cv::imwrite("test.png", cutMat);
+
+	cv::Mat m_homography = findHomography(pts_src, pts_dst); // 3x3
 	cv::Mat wMat;
-	cv::warpPerspective(cvimage, wMat, m_homography, cv::Size(cvimage.cols, cvimage.rows),
+	cv::warpPerspective(isCut? cutMat : cvimage, wMat, m_homography, cv::Size(cvimage.cols, cvimage.rows),
 		cv::InterpolationFlags::INTER_NEAREST | cv::InterpolationFlags::WARP_INVERSE_MAP);
 
 	string inputImageFileName = imageFilePath.substr(imageFilePath.find_last_of('\\') + 1);
@@ -367,13 +436,16 @@ void load_texture(string filename, int* w, int* h) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	// Load, create texture and generate mipmaps
-	int width, height;
+	int width, height, channel;
+	if (cvimage.rows > 0 && cvimage.cols > 0)
+		cvimage.release();
 	cvimage = cv::imread(filename);
 	//cv::imshow("check", cvimage);
-	unsigned char* image = SOIL_load_image(filename.c_str(), &width, &height, 0, SOIL_LOAD_RGB);
+	cout << " Image Channel: " << channel << endl;
+	unsigned char* image = SOIL_load_image(filename.c_str(), &width, &height, &channel, SOIL_LOAD_RGBA);
 	*w = width;
 	*h = height;
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
 	glGenerateMipmap(GL_TEXTURE_2D);
 	SOIL_free_image_data(image);
 	glBindTexture(GL_TEXTURE_2D, 0); // Unbind texture when done, so we won't accidentily mess up our texture.
@@ -416,14 +488,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_INSERT && action == GLFW_PRESS)
 	{
 		HWND console = GetConsoleWindow();
+		SetActiveWindow(console);
 		SetFocus(console);
 		cout << "New image file path: ";
 		cin >> imageFilePath;
 		int width, height;
 		load_texture(imageFilePath, &width, &height);
 		float ratio = (float)width / (float)height;
+		
+		glfwMakeContextCurrent(texwindow);
 		glfwSetWindowSize(texwindow, WIDTH, WIDTH / ratio);
 		glViewport(0, 0, WIDTH, WIDTH / ratio);
+
+		glfwMakeContextCurrent(objwindow);
 		glfwSetWindowSize(objwindow, WIDTH, WIDTH / ratio);
 		glViewport(0, 0, WIDTH, WIDTH / ratio);
 	}
@@ -461,8 +538,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 	if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
 	{
-		cout << "[Info] Calculating texCoord..." << endl;
-		calc_homography_matrix();
+		bool isSelectedAreaOnly = keys[GLFW_KEY_LEFT_SHIFT] || keys[GLFW_KEY_RIGHT_SHIFT];
+		cout << "[Info] Calculating texCoord..." << (isSelectedAreaOnly?" SELECTED AREA ONLY":"") << endl;
+		calc_homography_matrix(isSelectedAreaOnly);
 		print_view_matrix();
 		cout << "[Info] Calculating finished." << endl;
 	}
@@ -566,7 +644,7 @@ void draw_model()
 
 	int w, h;
 	glfwGetWindowSize(objwindow, &w, &h);
-	glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)w / (float)h, 100.0f, 999999999999.0f); //(float)WIDTH / (float)HEIGHT 4240.0f/2832.0f
+	glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)w / (float)h, 10.0f, 999999999999.0f); //(float)WIDTH / (float)HEIGHT 4240.0f/2832.0f
 	glm::mat4 view = camera.GetViewMatrix();
 	glUniformMatrix4fv(glGetUniformLocation(pShader->Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 	glUniformMatrix4fv(glGetUniformLocation(pShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
